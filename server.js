@@ -1,44 +1,27 @@
 const express = require('express');
 const app = express();
-const db = require('./db');
-const User = require('./models/user');
+const db = require('./config/db');
 const bodyParser = require('body-parser');
-const user = require('./models/user');
+const User = require('./models/User');
+const passport = require('passport');
+const LocalStrategy = require('passport-local').Strategy;
+
 app.use(bodyParser.json());
+
+app.use(passport.initialize());
+
 
 app.get('/', function (req, res) {
     res.send('Welcome to my foodies!!' )
 })
 
-app.post('/user' , async (req,res) =>{
-    
+const authRoutes = require('./routes/authRoutes');
+app.use('/' , authRoutes);
 
-    try{
-        const data = req.body;
-        const newUser  = new user(data);
-        const savedUser  = await newUser.save();
-        console.log("data is saved for user");
-        res.status(200).json(savedUser)
-    }
-    catch(err){
-        console.log(err);
-        res.status(400).json({error: err.message, details: err.errors})
-    }
+const userRoutes = require('./routes/userRoutes');
+app.use('/user' , userRoutes);
 
-})
-app.get('/user' , async (req, res) => {
-    try{
 
-        const data = await user.find();
-        console.log('data fetched from foodDB');
-        res.status(200).json(data);
-    }catch(err){
-        console.log(err);
-        res.status(400).json({error: err.message, details: err.errors});
-    }
-
-})
-
-    app.listen(3000, ()=>{
-    console.log('listening on port 3000');
-})
+app.listen(3000, ()=>{
+  console.log('listening on port 3000');
+   })
