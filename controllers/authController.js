@@ -30,7 +30,7 @@ const generateToken = (userData) => {
     const payload = typeof userData === 'string' ? { username: userData } : userData;
 
     // Generate a new JWT token using user data
-    return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: 30000 });
+    return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 }
 
 module.exports = {jwtAuthMiddleware, generateToken};

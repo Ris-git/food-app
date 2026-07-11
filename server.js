@@ -14,12 +14,12 @@ app.use(bodyParser.json());
 app.use(passport.initialize());
 
 
-app.get('/',jwtAuthMiddleware, function (req, res) {
+app.get('/', function (req, res) {
     res.send('Welcome to my foodies!!' )
 })
 
 const authRoutes = require('./routes/authRoutes');
-app.use('/' , authRoutes);
+app.use('/auth' , authRoutes);
 
 const userRoutes = require('./routes/userRoutes');
 

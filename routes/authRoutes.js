@@ -17,7 +17,8 @@ router.post("/signup", async (req, res) => {
 
     const payload ={
         id : savedUser.id,
-        username: savedUser.username
+        username: savedUser.username,
+        role: savedUser.role
     }
     console.log(JSON.stringify(payload));
 
@@ -97,7 +98,8 @@ router.post('/login', async(req, res) => {
         // generate Token 
         const payload = {
             id: foundUser.id,
-            username: foundUser.username
+            username: foundUser.username,
+            role: foundUser.role
         }
         const token = generateToken(payload);
 
