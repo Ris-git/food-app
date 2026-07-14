@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, lowercase: true },
-  username: {type: String , required: true},
+  username: {type: String , required: true , unique: true},
   password: { type: String, required: true },
   phone: { type: String, required: true },
   role: { 
@@ -49,3 +49,6 @@ UserSchema.methods.comparePassword = async function(candidatePassword){
 
 
 module.exports = mongoose.model('User', UserSchema);
+
+
+//add persmissons models

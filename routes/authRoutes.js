@@ -10,8 +10,15 @@ const localAuthMiddleware = passport.authenticate('local' , {session: false});
 //Signup logic to register a user
 router.post("/signup", async (req, res) => {
   try {
-    const data = req.body;
-    const newUser = new User(data);
+    const { name, email, username, password, phone, role } = req.body;
+    const newUser = new User({
+      name,
+      email,
+      username,
+      password, // Ideally hashed before this point
+      phone,
+      role // Defaults to 'customer' in your schema if not provided
+    });
     const savedUser = await newUser.save();
     console.log("User is registered now proceed to login");
 
@@ -20,17 +27,37 @@ router.post("/signup", async (req, res) => {
         username: savedUser.username,
         role: savedUser.role
     }
-    console.log(JSON.stringify(payload));
+    
 
     const token  = generateToken(payload);
     console.log("Token is: " ,token);
 
+    const clientUserResponse = {
+      id: savedUser._id,
+      name: savedUser.name,
+      email: savedUser.email,
+      username: savedUser.username,
+      role: savedUser.role,
+      phone: savedUser.phone
+    };
 
 
-    res.status(200).json({savedUser: savedUser , token: token});
+    return res.status(201).json({
+      success: true,
+      message: "User registered successfully",
+      token: token,
+      user: clientUserResponse
+    });
+
   } catch (err) {
-    console.log(err);
-    res.status(400).json({ error: err.message, details: err.errors });
+    console.error("Signup Error: ", err);
+    
+    // Send a structured error response
+      return res.status(400).json({ 
+      success: false,
+      message: "Registration failed",
+      error: err.message 
+    });
   }
 });
 
@@ -82,32 +109,53 @@ passport.use(new LocalStrategy(async(USERNAME,  password, done) => {
 }))
 */
 
-router.post('/login', async(req, res) => {
-    try{
-        // Extract username and password from request body
-        const {username, password} = req.body;
+router.post('/login', async (req, res) => {
+    try {
+        // 1. Extract credentials
+        const { username, password } = req.body;
 
-        // Find the user by username
-        const foundUser = await User.findOne({username: username});
+        // 2. Find the user
+        const foundUser = await User.findOne({ username: username });
 
-        // If user does not exist or password does not match, return error
-        if( !foundUser || !(await foundUser.comparePassword(password))){
-            return res.status(401).json({error: 'Invalid username or password'});
+        // 3. Dual verification check
+        if (!foundUser || !(await foundUser.comparePassword(password))) {
+            return res.status(401).json({ 
+                success: false,
+                message: 'Invalid username or password' 
+            });
         }
 
-        // generate Token 
+        // 4. Generate the payload for Access Token
         const payload = {
-            id: foundUser.id,
+            id: foundUser._id,
             username: foundUser.username,
             role: foundUser.role
-        }
+        };
         const token = generateToken(payload);
 
-        // return token as response
-        res.json({token})
-    }catch(err){
-        console.error(err);
-        res.status(500).json({ error: 'Internal Server Error' });
+        // 5. SANITIZE: Build a safe profile object to pass back
+        const clientUserResponse = {
+            id: foundUser._id,
+            name: foundUser.name,     // Useful for rendering "Welcome back, [Name]!"
+            username: foundUser.username,
+            role: foundUser.role,     // Essential for the frontend to route them to the right dashboard
+            phone: foundUser.phone
+        };
+
+        // 6. Return standard envelope response
+        return res.status(200).json({
+            success: true,
+            message: 'Login successful',
+            token: token,
+            user: clientUserResponse
+        });
+
+    } catch (err) {
+        console.error("Login Route Error: ", err);
+        return res.status(500).json({ 
+            success: false,
+            message: 'Internal Server Error' 
+        });
     }
 });
 module.exports = router;
