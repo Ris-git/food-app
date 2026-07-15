@@ -12,6 +12,11 @@ const UserSchema = new mongoose.Schema({
     enum: ['customer', 'admin' ,'restaurant', 'driver'], 
     default: 'customer' 
   },
+  
+  refreshToken: {
+      type: String,
+      default: ""
+  }, 
   addresses: [{
     type: { type: String, enum: ['Home', 'Work', 'Other'], default: 'Home' },
     addressLine: String,

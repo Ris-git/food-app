@@ -3,11 +3,14 @@ const router = express.Router();
 const User = require("../models/User");
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
-const {jwtAuthMiddleware, generateToken} = require('./../controllers/authController');
+const jwt = require('jsonwebtoken');
+const { 
+  jwtAuthMiddleware, 
+  generateAccessToken, 
+  generateRefreshToken 
+} = require('./../controllers/authController');
 
-const localAuthMiddleware = passport.authenticate('local' , {session: false});
-
-//Signup logic to register a user
+// Signup logic to register a user
 router.post("/signup", async (req, res) => {
   try {
     const { name, email, username, password, phone, role } = req.body;
@@ -15,22 +18,35 @@ router.post("/signup", async (req, res) => {
       name,
       email,
       username,
-      password, // Ideally hashed before this point
+      password, 
       phone,
-      role // Defaults to 'customer' in your schema if not provided
+      role 
     });
+    
     const savedUser = await newUser.save();
     console.log("User is registered now proceed to login");
 
-    const payload ={
-        id : savedUser.id,
+    const payload = {
+        id: savedUser._id,
         username: savedUser.username,
         role: savedUser.role
-    }
+    };
     
+    //generate tokens 
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
 
-    const token  = generateToken(payload);
-    console.log("Token is: " ,token);
+    // Save the refresh token to the database for this new user
+    savedUser.refreshToken = refreshToken;
+    await savedUser.save();
+
+    //Set the refresh token cookie on signup too
+    res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production', 
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000 
+    });
 
     const clientUserResponse = {
       id: savedUser._id,
@@ -41,18 +57,16 @@ router.post("/signup", async (req, res) => {
       phone: savedUser.phone
     };
 
-
+    //Changed token to accessToken to match our schema structure
     return res.status(201).json({
       success: true,
       message: "User registered successfully",
-      token: token,
+      accessToken: accessToken, 
       user: clientUserResponse
     });
 
   } catch (err) {
     console.error("Signup Error: ", err);
-    
-    // Send a structured error response
       return res.status(400).json({ 
       success: false,
       message: "Registration failed",
@@ -61,63 +75,12 @@ router.post("/signup", async (req, res) => {
   }
 });
 
-//passport to verify user details
-/* 
-ALTERNATIVE AUTHENTICATION APPROACH: SERVER SESSION STRATEGY
-Currently using JWT (stateless, token-based auth).
-
-If using SERVER SESSION STRATEGY instead:
-- User logs in → Server creates a session and stores user info in memory/database
-- Server sends back session ID (via cookie)
-- Client automatically sends session ID with each request
-- Server verifies session ID against stored sessions
-
-Passport LocalStrategy example (commented out):
-1. Finds user by username
-2. Compares password (bcrypt)
-3. On success: Server creates session, stores user data
-4. Subsequent requests: Check session, req.user auto-populated
-
-Pros of Server Session: Simpler for traditional web apps, sessions can be revoked instantly
-Cons: Requires server memory, doesn't scale well, slower for APIs
-
-JWT approach (current): Stateless, token expires, better for microservices and mobile apps
-*/
-
-/*
-passport.use(new LocalStrategy(async(USERNAME,  password, done) => {
-
-    try{
-        console.log('Recieved credentials: ', USERNAME , password);
-        const user = await User.findOne({username: USERNAME});
-        if(!user)
-            return done(null , false, { message: 'Incorrect username'});
-
-        const isPasswordMatch = await user.comparePassword(password);
-        if(isPasswordMatch){
-            return done(null , user)
-        }else{
-            return done(null , false, { message : 'Incorrect password'});
-        }
-
-    }catch(err){
-        return done(err);
-
-    }
-
-
-}))
-*/
-
+// Login Route
 router.post('/login', async (req, res) => {
     try {
-        // 1. Extract credentials
         const { username, password } = req.body;
-
-        // 2. Find the user
         const foundUser = await User.findOne({ username: username });
 
-        // 3. Dual verification check
         if (!foundUser || !(await foundUser.comparePassword(password))) {
             return res.status(401).json({ 
                 success: false,
@@ -125,28 +88,37 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // 4. Generate the payload for Access Token
         const payload = {
             id: foundUser._id,
             username: foundUser.username,
             role: foundUser.role
         };
-        const token = generateToken(payload);
 
-        // 5. SANITIZE: Build a safe profile object to pass back
+        const accessToken = generateAccessToken(payload);
+        const refreshToken = generateRefreshToken(payload);
+
+        foundUser.refreshToken = refreshToken;
+        await foundUser.save();
+
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production', 
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000 
+        });
+
         const clientUserResponse = {
             id: foundUser._id,
-            name: foundUser.name,     // Useful for rendering "Welcome back, [Name]!"
+            name: foundUser.name,     
             username: foundUser.username,
-            role: foundUser.role,     // Essential for the frontend to route them to the right dashboard
+            role: foundUser.role,     
             phone: foundUser.phone
         };
 
-        // 6. Return standard envelope response
         return res.status(200).json({
             success: true,
             message: 'Login successful',
-            token: token,
+            accessToken: accessToken,
             user: clientUserResponse
         });
 
@@ -158,4 +130,70 @@ router.post('/login', async (req, res) => {
         });
     }
 });
+
+
+
+router.post('/refresh-token', async (req, res) => {
+    try {
+        const incomingRefreshToken = (req.cookies && req.cookies.refreshToken) || req.body?.refreshToken;
+
+        if (!incomingRefreshToken) {
+            return res.status(401).json({ 
+                success: false, 
+                error: 'Refresh token is missing. Please log in again.' 
+            });
+        }
+
+        const foundUser = await User.findOne({ refreshToken: incomingRefreshToken });
+        if (!foundUser) {
+            return res.status(403).json({ success: false, error: 'Invalid refresh token' });
+        }
+
+        try {
+            const decoded = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET);
+            
+            // Build fresh payload using data from verified DB record
+            const payload = {
+                id: foundUser._id,
+                username: foundUser.username,
+                role: foundUser.role
+            };
+            const newAccessToken = generateAccessToken(payload);
+
+            // Clean industry standard format
+            return res.status(200).json({ 
+                success: true, 
+                accessToken: newAccessToken 
+            });
+
+        } catch (jwtErr) {
+            console.error("JWT Verify Internal Error: ", jwtErr.message);
+            return res.status(403).json({ success: false, error: 'Expired or tampered refresh token' });
+        }
+
+    } catch (err) {
+        console.error("Refresh Token Router Failure: ", err);
+        return res.status(500).json({ success: false, error: 'Internal Server Error' });
+    }
+});
+
+
+
+router.post('/logout', async (req, res) => {
+    try {
+        const token = (req.cookies && req.cookies.refreshToken) || req.body?.refreshToken;
+
+        // Clear it from the database
+        await User.findOneAndUpdate({ refreshToken: token }, { $set: { refreshToken: "" } });
+
+        // Clear cookie from browser
+        res.clearCookie('refreshToken');
+        res.status(200).json({ message: 'Logged out successfully' });
+    } catch (err) {
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+
+
 module.exports = router;

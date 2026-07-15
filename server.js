@@ -7,8 +7,9 @@ const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const {jwtAuthMiddleware} = require('./controllers/authController');
 require('dotenv').config();
+const cookieParser = require('cookie-parser');
 
-
+app.use(cookieParser());
 app.use(bodyParser.json());
 
 app.use(passport.initialize());
