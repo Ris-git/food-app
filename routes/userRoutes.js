@@ -2,30 +2,32 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
 const authorize = require('../middlewares/roleMiddleware');
-const {jwtAuthMiddleware, generateToken} = require('../controllers/authController');
+const { jwtAuthMiddleware } = require('../middlewares/authMiddleware');
+const { permissions } = require('../config/roles');
+
 
 
 
 //Peerfroming  CRUD operatings in Database
 
 
-//POST route to add a user
-router.post("/",jwtAuthMiddleware ,authorize('admin'), async (req, res) => {
-  try {
-    const data = req.body;
-    const newUser = new User(data);
-    const savedUser = await newUser.save();
-    console.log("data is saved for user");
-    res.status(200).json(savedUser);
-  } catch (err) {
-    console.log(err);
-    res.status(400).json({ error: err.message, details: err.errors });
-  }
-});
+// //POST route to add a user
+// router.post("/",jwtAuthMiddleware ,authorize(permissions.VIEW_USERS), async (req, res) => {
+//   try {
+//     const data = req.body;
+//     const newUser = new User(data);
+//     const savedUser = await newUser.save();
+//     console.log("data is saved for user");
+//     res.status(200).json(savedUser);
+//   } catch (err) {
+//     console.log(err);
+//     res.status(400).json({ error: err.message, details: err.errors });
+//   }
+// });
 
 //GET route to get all user details
 
-router.get("/", jwtAuthMiddleware, authorize('admin'), async (req, res) => {
+router.get("/", jwtAuthMiddleware, authorize(permissions.VIEW_USERS), async (req, res) => {
   try {
     const data = await User.find();
     console.log("data fetched from foodDB");

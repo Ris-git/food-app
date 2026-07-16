@@ -5,7 +5,7 @@ const bodyParser = require('body-parser');
 const User = require('./models/User');
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
-const {jwtAuthMiddleware} = require('./controllers/authController');
+const { jwtAuthMiddleware } = require('./middlewares/authMiddleware');
 require('dotenv').config();
 const cookieParser = require('cookie-parser');
 

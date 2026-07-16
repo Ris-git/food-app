@@ -1,19 +1,22 @@
-const authorize = (...allowedRoles) => {
-  return (req, res, next) => {
-    // Admins bypass all restrictions
-    if (req.user.role === 'admin') {
-      return next();
-    }
+const { roles } = require('../config/roles');
 
-    // Check if the user's role is permitted for this endpoint
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ 
-        message: `Role (${req.user.role}) is not authorized to access this resource` 
-      });
-    }
-    
-    next();
-  };
+// The Authorization Middleware
+const authorize = (requiredPermission) => {
+    return (req, res, next) => {
+        
+        if (!req.user || !req.user.role) {
+            return res.status(403).json({ success: false, error: 'Access Denied: No role found' });
+        }
+        const userRole = req.user.role;
+        const userPermissions = roles[userRole] || [];
+        if (!userPermissions.includes(requiredPermission)) {
+            return res.status(403).json({ 
+                success: false, 
+                error: `Forbidden: You do not have permission to perform this action.` 
+            });
+        }
+        next();
+    };
 };
 
 module.exports = authorize;
