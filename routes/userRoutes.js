@@ -27,16 +27,32 @@ const { permissions } = require('../config/roles');
 
 //GET route to get all user details
 
-router.get("/", jwtAuthMiddleware, authorize(permissions.VIEW_USERS), async (req, res) => {
-  try {
-    const data = await User.find();
-    console.log("data fetched from foodDB");
-    res.status(200).json(data);
-  } catch (err) {
-    console.log(err);
-    res.status(400).json({ error: err.message, details: err.errors });
+// Passing an array of permissions into authorize()
+router.get(
+  "/", 
+  jwtAuthMiddleware, 
+  authorize([permissions.VIEW_USERS, permissions.ADMIN_ALL]), 
+  async (req, res) => {
+    try {
+      // Exclude sensitive field 'password' from being returned in the response
+      const data = await User.find().select("-password");
+      console.log("Data fetched from foodDB");
+      
+      return res.status(200).json({
+        success: true,
+        count: data.length,
+        users: data
+      });
+    } catch (err) {
+      console.error("Error fetching users: ", err);
+      return res.status(500).json({ 
+        success: false, 
+        error: "Failed to fetch users", 
+        details: err.message 
+      });
+    }
   }
-});
+);
 
 //GET route to get user details from user Type
 router.get("/:userType", async (req, res) => {

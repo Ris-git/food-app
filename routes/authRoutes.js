@@ -5,16 +5,30 @@ const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const jwt = require('jsonwebtoken');
 const { permissions } = require('../config/roles');
-
+const { 
+  signupValidationRules, 
+  loginValidationRules, 
+  validate 
+} = require("../middlewares/ValidateAuth");
 const {
   generateAccessToken,
   generateRefreshToken
 } = require('./../controllers/authController');
 
 // Signup logic to register a user
-router.post("/signup", async (req, res) => {
+router.post("/signup", signupValidationRules, validate, async (req, res) => {
   try {
     const { name, email, username, password, phone, role } = req.body;
+
+    // CHANGE 2: Added a check for existing email/username before trying to save
+    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "Username or email is already registered"
+      });
+    }
+
     const newUser = new User({
       name,
       email,
@@ -24,24 +38,26 @@ router.post("/signup", async (req, res) => {
       role 
     });
     
-    const savedUser = await newUser.save();
-    console.log("User is registered now proceed to login");
-
+    //Simplified DB operations by passing initial refresh token directly 
     const payload = {
-        id: savedUser._id,
-        username: savedUser.username,
-        role: savedUser.role
+        id: newUser._id,
+        username: newUser.username,
+        role: newUser.role
     };
     
-    //generate tokens 
+    // Generate tokens
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
-    // Save the refresh token to the database for this new user
-    savedUser.refreshToken = refreshToken;
-    await savedUser.save();
+    const decodedAccess = jwt.decode(accessToken);
+    const expiresAt = decodedAccess && decodedAccess.exp ? new Date(decodedAccess.exp * 1000).toISOString() : null;
 
-    //Set the refresh token cookie on signup too
+    // Assign refresh token before saving so you only hit the database ONCE instead of twice
+    newUser.refreshToken = refreshToken;
+    const savedUser = await newUser.save();
+    console.log("User is registered now proceed to login");
+
+    // Set the refresh token cookie
     res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production', 
@@ -58,17 +74,17 @@ router.post("/signup", async (req, res) => {
       phone: savedUser.phone
     };
 
-    //Changed token to accessToken to match our schema structure
     return res.status(201).json({
       success: true,
       message: "User registered successfully",
-      accessToken: accessToken, 
+      accessToken: accessToken,
+      expiresAt: expiresAt,
       user: clientUserResponse
     });
 
   } catch (err) {
     console.error("Signup Error: ", err);
-      return res.status(400).json({ 
+    return res.status(500).json({ 
       success: false,
       message: "Registration failed",
       error: err.message 
@@ -77,7 +93,7 @@ router.post("/signup", async (req, res) => {
 });
 
 // Login Route
-router.post('/login', async (req, res) => {
+router.post('/login', loginValidationRules, validate, async (req, res) => {
     try {
         const { username, password } = req.body;
         const foundUser = await User.findOne({ username: username });
@@ -131,7 +147,6 @@ router.post('/login', async (req, res) => {
         });
     }
 });
-
 
 
 router.post('/refresh-token', async (req, res) => {

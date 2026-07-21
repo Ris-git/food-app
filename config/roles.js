@@ -1,4 +1,3 @@
-// config/roles.js
 
 const allPermissions = {
   // Menu Permissions
