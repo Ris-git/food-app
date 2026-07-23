@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
+const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS, 10) || 10;
+
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, lowercase: true },
@@ -33,7 +35,7 @@ UserSchema.pre('save', async function(){
     if(!user.isModified('password')) return;
 
     // hash password generation
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(SALT_ROUNDS);
 
     // hash password
     const hashedPassword = await bcrypt.hash(user.password, salt);

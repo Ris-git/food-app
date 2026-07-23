@@ -1,6 +1,4 @@
 const { roles } = require('../config/roles');
-
-
 // The Authorization Middleware
 const authorize = (requiredPermissions) => {
   return (req, res, next) => {

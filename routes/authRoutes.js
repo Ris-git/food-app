@@ -12,7 +12,10 @@ const {
 } = require("../middlewares/ValidateAuth");
 const {
   generateAccessToken,
-  generateRefreshToken
+  generateRefreshToken,
+  parseDuration,
+  ACCESS_TOKEN_EXPIRES_IN,
+  REFRESH_TOKEN_EXPIRES_IN
 } = require('./../controllers/authController');
 
 // Signup logic to register a user
@@ -49,8 +52,7 @@ router.post("/signup", signupValidationRules, validate, async (req, res) => {
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
-    const decodedAccess = jwt.decode(accessToken);
-    const expiresAt = decodedAccess && decodedAccess.exp ? new Date(decodedAccess.exp * 1000).toISOString() : null;
+    const expiresAt = new Date(Date.now() + parseDuration(ACCESS_TOKEN_EXPIRES_IN)).toISOString();
 
     // Assign refresh token before saving so you only hit the database ONCE instead of twice
     newUser.refreshToken = refreshToken;
@@ -60,9 +62,9 @@ router.post("/signup", signupValidationRules, validate, async (req, res) => {
     // Set the refresh token cookie
     res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production', 
+        secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000 
+        maxAge: parseDuration(REFRESH_TOKEN_EXPIRES_IN)
     });
 
     const clientUserResponse = {
@@ -119,9 +121,9 @@ router.post('/login', loginValidationRules, validate, async (req, res) => {
 
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production', 
+            secure: process.env.NODE_ENV === 'production',
             sameSite: 'strict',
-            maxAge: 7 * 24 * 60 * 60 * 1000 
+            maxAge: parseDuration(REFRESH_TOKEN_EXPIRES_IN)
         });
 
         const clientUserResponse = {
