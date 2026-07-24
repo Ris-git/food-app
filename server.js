@@ -1,32 +1,33 @@
+require('dotenv').config();
 const express = require('express');
 const app = express();
-const db = require('./config/db');
-const bodyParser = require('body-parser');
-const User = require('./models/User');
-const passport = require('passport');
-const LocalStrategy = require('passport-local').Strategy;
-const { jwtAuthMiddleware } = require('./middlewares/authMiddleware');
-require('dotenv').config();
 const cookieParser = require('cookie-parser');
 
-app.use(cookieParser());
-app.use(bodyParser.json());
+// Database connection
+const db = require('./config/db');
 
-app.use(passport.initialize());
-
-
-app.get('/', function (req, res) {
-    res.send('Welcome to my foodies!!' )
-})
+// Middlewares & Routes
+const { jwtAuthMiddleware } = require('./middlewares/authMiddleware');
+const { globalLimiter } = require('./middlewares/rateLimiter');
 
 const authRoutes = require('./routes/authRoutes');
-app.use('/auth' , authRoutes);
-
 const userRoutes = require('./routes/userRoutes');
 
-app.use('/user', jwtAuthMiddleware, userRoutes);// Protected
+// Body parsing & Cookie parsing
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
+// Root Health Check
+app.get('/', (req, res) => {
+    res.status(200).send('Welcome to my foodies!!');
+});
 
-app.listen(3000, ()=>{
-  console.log('listening on port 3000');
-   })
+// Apply Global Rate Limiting to all API routes
+app.use('/auth',  authRoutes);
+app.use('/user', globalLimiter, jwtAuthMiddleware, userRoutes); // Protected with JWT & Rate Limited
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server running and listening on port ${PORT}`);
+});

@@ -4,6 +4,7 @@ const User = require("../models/User");
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const jwt = require('jsonwebtoken');
+
 const { permissions } = require('../config/roles');
 const { 
   signupValidationRules, 
@@ -17,9 +18,10 @@ const {
   ACCESS_TOKEN_EXPIRES_IN,
   REFRESH_TOKEN_EXPIRES_IN
 } = require('./../controllers/authController');
+const { authLimiter } = require("../middlewares/rateLimiter");
 
 // Signup logic to register a user
-router.post("/signup", signupValidationRules, validate, async (req, res) => {
+router.post("/signup", authLimiter , signupValidationRules, validate, async (req, res) => {
   try {
     const { name, email, username, password, phone, role } = req.body;
 
@@ -95,7 +97,7 @@ router.post("/signup", signupValidationRules, validate, async (req, res) => {
 });
 
 // Login Route
-router.post('/login', loginValidationRules, validate, async (req, res) => {
+router.post('/login', authLimiter , loginValidationRules, validate, async (req, res) => {
     try {
         const { username, password } = req.body;
         const foundUser = await User.findOne({ username: username });
@@ -151,7 +153,7 @@ router.post('/login', loginValidationRules, validate, async (req, res) => {
 });
 
 
-router.post('/refresh-token', async (req, res) => {
+router.post('/refresh-token', authLimiter , async (req, res) => {
     try {
         const incomingRefreshToken = (req.cookies && req.cookies.refreshToken) || req.body?.refreshToken;
 
