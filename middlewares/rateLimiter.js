@@ -1,30 +1,52 @@
+// middlewares/rateLimiter.js
 const rateLimit = require('express-rate-limit');
+const { RedisStore } = require('rate-limit-redis');
+const { createClient } = require('redis');
 
-// 1. General Limiter for standard API routes
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, 
-  max: 5,
-  standardHeaders: true, 
-  legacyHeaders: false, 
-  message: {
-    success: false,
-    message: 'Too many requests from this IP, please try again after 15 minutes.'
-  }
+// 1. Initialize Redis Client
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
+  socket: {
+    reconnectStrategy: (retries) => {
+      if (retries >= 3) return new Error('Redis connection retries exhausted');
+      return 500;
+    },
+  },
 });
 
-// 2. Strict Limiter for sensitive Auth routes (login, signup, refresh-token)
+// Suppress unhandled error logs when Redis container is not running
+redisClient.on('error', () => {});
+
+// Connect asynchronously on startup
+(async () => {
+  try {
+    await redisClient.connect();
+    console.log('⚡ Connected to Redis for rate limiting successfully!');
+  } catch (err) {
+    console.warn('⚠️ Redis offline. Rate limiter automatically using in-memory fallback.');
+  }
+})();
+
+// 2. Auth Limiter (Uses RedisStore if connected, otherwise defaults to in-memory store)
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes window
-  max: 5, // Limit each IP to only 10 failed/successful auth attempts per 15 minutes
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
     success: false,
-    message: 'Too many login/signup attempts from this IP. Please try again after 15 minutes for security reasons.'
-  }
+    message: 'Too many authentication attempts. Please try again after 15 minutes.',
+  },
+  ...(redisClient.isOpen && {
+    store: new RedisStore({
+      prefix: 'auth:',
+      sendCommand: (...args) => redisClient.sendCommand(args),
+    }),
+  }),
 });
 
 module.exports = {
-  globalLimiter,
-  authLimiter
+  authLimiter,
 };
+
+//question - what if redis is not up , do i create a fallback logic for it like using in memory store..

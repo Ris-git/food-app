@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const mongourl = 'mongodb://localhost:27017/FoodDB';
+const mongourl = process.env.MONGODB_URI || 'mongodb://localhost:27017/FoodDB';
 
 mongoose.connect(mongourl);
 

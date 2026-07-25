@@ -1,4 +1,9 @@
 require('dotenv').config();
+// Polyfill crypto for MongoDB driver in Node.js >=23
+if (typeof global.crypto === 'undefined') {
+    const { webcrypto } = require('crypto');
+    global.crypto = webcrypto;
+}
 const express = require('express');
 const app = express();
 const cookieParser = require('cookie-parser');
@@ -8,7 +13,6 @@ const db = require('./config/db');
 
 // Middlewares & Routes
 const { jwtAuthMiddleware } = require('./middlewares/authMiddleware');
-const { globalLimiter } = require('./middlewares/rateLimiter');
 
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -23,9 +27,14 @@ app.get('/', (req, res) => {
     res.status(200).send('Welcome to my foodies!!');
 });
 
-// Apply Global Rate Limiting to all API routes
-app.use('/auth',  authRoutes);
-app.use('/user', globalLimiter, jwtAuthMiddleware, userRoutes); // Protected with JWT & Rate Limited
+app.use('/auth', authRoutes);
+app.use('/user', jwtAuthMiddleware, userRoutes); // Protected with JWT
+
+const menuRoutes = require('./routes/menuRoutes');
+const restaurantRoutes = require('./routes/restaurantRoutes');
+
+app.use('/menu', menuRoutes);
+app.use('/restaurant', restaurantRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

@@ -4,13 +4,13 @@ const menuItemSchema = new mongoose.Schema(
   {
     title: {
       type: String,
-      required: [true, "Item name is required"],
+      required: [true, "Menu item title is required"],
       trim: true,
     },
     type: {
       type: String,
-      enum: ["Veg", "Non-Veg", "Beverage", "Dessert"],
-      default: "Veg",
+      enum: ["veg", "non-veg", "beverage", "dessert", "other"],
+      default: "other",
     },
     description: {
       type: String,
@@ -21,7 +21,10 @@ const menuItemSchema = new mongoose.Schema(
       required: [true, "Price is required"],
       min: [0, "Price cannot be negative"],
     },
-    // Belongs to a specific restaurant
+    isAvailable: {
+      type: Boolean,
+      default: true,
+    },
     restaurant: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Restaurant",
