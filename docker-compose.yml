@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # REDIS RUNS IN DOCKER
   redis:
@@ -7,7 +5,7 @@ services:
     container_name: foodies_redis
     restart: always
     ports:
-      # Exposes Docker's internal Redis port 6379 to your local 127.0.0.1:6379
+      # Exposes Docker's internal Redis port 6379 to my local 127.0.0.1:6379
       - "6379:6379"
     volumes:
       - redis_data:/data

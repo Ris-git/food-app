@@ -23,7 +23,7 @@ const { authLimiter } = require("../middlewares/rateLimiter");
 // Signup logic to register a user
 router.post("/signup", authLimiter , signupValidationRules, validate, async (req, res) => {
   try {
-    const { name, email, username, password, phone, role } = req.body;
+    const { name, email, username, password, phone } = req.body;
 
     // CHANGE 2: Added a check for existing email/username before trying to save
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
@@ -39,8 +39,7 @@ router.post("/signup", authLimiter , signupValidationRules, validate, async (req
       email,
       username,
       password, 
-      phone,
-      role 
+      phone
     });
     
     //Simplified DB operations by passing initial refresh token directly 

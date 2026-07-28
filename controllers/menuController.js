@@ -18,7 +18,7 @@ exports.addMenuItem = async (req, res) => {
     }
 
     // Authorization check: Verify ownership
-    if (restaurant.user?.toString() !== req.user.id && req.user.role !== "admin") {
+    if (restaurant.user?.toString() !== req.user.id && !["admin", "superAdmin"].includes(req.user.role)) {
       return res.status(403).json({ success: false, message: "Unauthorized to add items to this restaurant" });
     }
 
@@ -79,7 +79,7 @@ exports.updateMenuItem = async (req, res) => {
       return res.status(404).json({ success: false, message: "Menu item not found" });
     }
 
-    if (menuItem.restaurant?.user?.toString() !== req.user.id && req.user.role !== "admin") {
+    if (menuItem.restaurant?.user?.toString() !== req.user.id && !["admin", "superAdmin"].includes(req.user.role)) {
       return res.status(403).json({ success: false, message: "Unauthorized to update this menu item" });
     }
 
@@ -106,7 +106,7 @@ exports.deleteMenuItem = async (req, res) => {
       return res.status(404).json({ success: false, message: "Menu item not found" });
     }
 
-    if (menuItem.restaurant?.user?.toString() !== req.user.id && req.user.role !== "admin") {
+    if (menuItem.restaurant?.user?.toString() !== req.user.id && !["admin", "superAdmin"].includes(req.user.role)) {
       return res.status(403).json({ success: false, message: "Unauthorized to delete this menu item" });
     }
 

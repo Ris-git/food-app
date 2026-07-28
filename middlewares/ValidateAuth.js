@@ -1,6 +1,6 @@
 const { body, validationResult } = require('express-validator');
 
-// 1. Rules for Signup Form
+//sign up
 const signupValidationRules = [
   body('name')
     .trim()
@@ -22,14 +22,10 @@ const signupValidationRules = [
   
   body('phone')
     .trim()
-    .isMobilePhone().withMessage('Please enter a valid phone number'),
-  
-  body('role')
-    .optional()
-    .isIn(['customer', 'driver', 'restaurant', 'admin']).withMessage('Invalid user role')
+    .isMobilePhone().withMessage('Please enter a valid phone number')
 ];
 
-// 2. Rules for Login Form
+// for Login Form
 const loginValidationRules = [
   body('username')
     .trim()
@@ -39,7 +35,7 @@ const loginValidationRules = [
     .notEmpty().withMessage('Password is required')
 ];
 
-// 3. Middleware function that checks if validation passed or failed
+//  if validation passed or failed
 const validate = (req, res, next) => {
   const errors = validationResult(req);
   
@@ -51,7 +47,7 @@ const validate = (req, res, next) => {
     });
   }
   
-  // If validation passed, pass control to the next middleware/route handler
+  // If validation passed, pass control to the next middleware
   next();
 };
 

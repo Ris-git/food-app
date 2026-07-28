@@ -11,8 +11,28 @@ const UserSchema = new mongoose.Schema({
   phone: { type: String, required: true },
   role: { 
     type: String, 
-    enum: ['customer', 'admin' ,'restaurant', 'driver'], 
+    enum: ['customer', 'admin', 'superAdmin', 'restaurant', 'driver'], 
     default: 'customer' 
+  },
+  isVerified: {
+    type: Boolean,
+    default: false
+  },
+  verificationToken: {
+    type: String,
+    default: null
+  },
+  verificationTokenExpires: {
+    type: Date,
+    default: null
+  },
+  verificationOTP: {
+    type: String,
+    default: null
+  },
+  verificationOTPExpires: {
+    type: Date,
+    default: null
   },
   
   refreshToken: {

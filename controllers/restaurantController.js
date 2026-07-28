@@ -80,7 +80,7 @@ exports.updateRestaurant = async (req, res) => {
     }
 
     // Ownership check: Verify logged-in user owns this restaurant OR is an admin
-    if (restaurant.user?.toString() !== req.user.id && req.user.role !== 'admin') {
+    if (restaurant.user?.toString() !== req.user.id && !['admin', 'superAdmin'].includes(req.user.role)) {
       return res.status(403).json({ success: false, message: "Unauthorized: You do not own this restaurant" });
     }
 

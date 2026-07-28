@@ -54,17 +54,13 @@ router.get(
   }
 );
 
-//GET route to get user details from user Type
+// GET route to get user details from user Type
 router.get("/:userType", async (req, res) => {
   try {
     const userType = req.params.userType;
-    if (
-      userType == "customer" ||
-      userType == "restaurant" ||
-      userType == "driver" ||
-      userType == "admin"
-    ) {
-      const response = await User.find({ role: userType });
+    const validTypes = ["customer", "restaurant", "driver", "admin", "superAdmin"];
+    if (validTypes.includes(userType)) {
+      const response = await User.find({ role: userType }).select("-password");
       console.log("response fetched for user type:", userType);
       res.status(200).json(response);
     } else {
@@ -76,7 +72,47 @@ router.get("/:userType", async (req, res) => {
   }
 });
 
-//PUT route to update a record by id
+// PUT route to change user role (SuperAdmin only)
+router.put(
+  "/:id/role",
+  jwtAuthMiddleware,
+  authorize([permissions.CHANGE_USER_ROLE]),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { role } = req.body;
+
+      const validRoles = ["customer", "admin", "superAdmin", "restaurant", "driver"];
+      if (!role || !validRoles.includes(role)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid role. Allowed roles: ${validRoles.join(", ")}`
+        });
+      }
+
+      const updatedUser = await User.findByIdAndUpdate(
+        id,
+        { role },
+        { new: true, runValidators: true }
+      ).select("-password");
+
+      if (!updatedUser) {
+        return res.status(404).json({ success: false, message: "User not found" });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: `User role updated to '${role}' successfully`,
+        user: updatedUser
+      });
+    } catch (error) {
+      console.error("Error changing user role:", error);
+      return res.status(500).json({ success: false, message: "Internal server error" });
+    }
+  }
+);
+
+// PUT route to update a record by id
 router.put("/:id", async (req, res) => {
   try {
     const UserId = req.params.id;
@@ -97,8 +133,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-//DELETE route to delete a record by id
-
+// DELETE route to delete a record by id
 router.delete("/:id", async (req, res) => {
   try {
     const userId = req.params.id;

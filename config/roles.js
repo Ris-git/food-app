@@ -14,6 +14,7 @@ const allPermissions = {
   // User Management Permissions
   VIEW_USERS: 'view:users',
   MANAGE_USERS: 'manage:users',
+  CHANGE_USER_ROLE: 'change:user_role',
   
   ADMIN_ALL: 'admin:all'
 };
@@ -33,7 +34,8 @@ const roles = {
   driver: [
     allPermissions.UPDATE_ORDER_STATUS
   ],
-  admin: Object.values(allPermissions) 
+  admin: Object.values(allPermissions).filter(p => p !== allPermissions.CHANGE_USER_ROLE),
+  superAdmin: Object.values(allPermissions) 
 };
 
 module.exports = {
