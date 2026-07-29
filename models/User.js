@@ -14,6 +14,10 @@ const UserSchema = new mongoose.Schema({
     enum: ['customer', 'admin', 'superAdmin', 'restaurant', 'driver'], 
     default: 'customer' 
   },
+  emailVerified: {
+    type: Boolean,
+    default: false
+  },
   isVerified: {
     type: Boolean,
     default: false

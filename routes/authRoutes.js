@@ -20,12 +20,14 @@ const {
 } = require('./../controllers/authController');
 const { authLimiter } = require("../middlewares/rateLimiter");
 
+const crypto = require('crypto');
+
 // Signup logic to register a user
 router.post("/signup", authLimiter , signupValidationRules, validate, async (req, res) => {
   try {
     const { name, email, username, password, phone } = req.body;
 
-    // CHANGE 2: Added a check for existing email/username before trying to save
+    // Check if the email or username is already registered
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
       return res.status(400).json({
@@ -34,55 +36,28 @@ router.post("/signup", authLimiter , signupValidationRules, validate, async (req
       });
     }
 
+    // Generate secure random verification token and 24-hour expiry
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
     const newUser = new User({
       name,
       email,
       username,
       password, 
-      phone
+      phone,
+      emailVerified: false,
+      isVerified: false,
+      verificationToken,
+      verificationTokenExpires
     });
     
-    //Simplified DB operations by passing initial refresh token directly 
-    const payload = {
-        id: newUser._id,
-        username: newUser.username,
-        role: newUser.role
-    };
-    
-    // Generate tokens
-    const accessToken = generateAccessToken(payload);
-    const refreshToken = generateRefreshToken(payload);
-
-    const expiresAt = new Date(Date.now() + parseDuration(ACCESS_TOKEN_EXPIRES_IN)).toISOString();
-
-    // Assign refresh token before saving so you only hit the database ONCE instead of twice
-    newUser.refreshToken = refreshToken;
-    const savedUser = await newUser.save();
-    console.log("User is registered now proceed to login");
-
-    // Set the refresh token cookie
-    res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: parseDuration(REFRESH_TOKEN_EXPIRES_IN)
-    });
-
-    const clientUserResponse = {
-      id: savedUser._id,
-      name: savedUser.name,
-      email: savedUser.email,
-      username: savedUser.username,
-      role: savedUser.role,
-      phone: savedUser.phone
-    };
+    await newUser.save();
+    console.log("User registered with verification token. Verification pending.");
 
     return res.status(201).json({
       success: true,
-      message: "User registered successfully",
-      accessToken: accessToken,
-      expiresAt: expiresAt,
-      user: clientUserResponse
+      message: "Account created. Verification pending."
     });
 
   } catch (err) {
