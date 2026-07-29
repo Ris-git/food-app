@@ -22,7 +22,7 @@ const { authLimiter } = require("../middlewares/rateLimiter");
 
 const crypto = require('crypto');
 
-const { sendVerificationEmail } = require("../services/email.service");
+const { sendVerificationEmail, sendResetPasswordEmail } = require("../services/email.service");
 
 // Signup logic to register a user
 router.post("/signup", authLimiter , signupValidationRules, validate, async (req, res) => {
@@ -129,6 +129,182 @@ router.get("/verify-email", async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error during email verification"
+    });
+  }
+});
+
+// Resend Verification Email Endpoint
+router.post("/resend-verification", authLimiter, async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email address is required"
+      });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No account found with this email address"
+      });
+    }
+
+    if (user.emailVerified || user.isVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "This email address is already verified. Please log in."
+      });
+    }
+
+    // Generate fresh verification token and 24-hour expiry
+    const newToken = crypto.randomBytes(32).toString('hex');
+    const newExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    user.verificationToken = newToken;
+    user.verificationTokenExpires = newExpiry;
+    await user.save();
+
+    // Send new verification email
+    try {
+      await sendVerificationEmail(user.email, newToken);
+    } catch (emailErr) {
+      console.error("⚠️ Failed to resend verification email:", emailErr.message);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send verification email. Please try again later."
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Verification email resent successfully. Please check your inbox."
+    });
+
+  } catch (err) {
+    console.error("Resend Verification Error: ", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error during resending verification email"
+    });
+  }
+});
+
+// Forgot Password Endpoint - Request reset email
+router.post("/forgot-password", authLimiter, async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email address is required"
+      });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    // Security best practice: Return generic success to prevent account enumeration
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message: "If an account with that email exists, a password reset link has been sent."
+      });
+    }
+
+    // Generate reset token and 1-hour expiration
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpires = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour
+
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = resetTokenExpires;
+    await user.save();
+
+    // Send reset password email
+    try {
+      await sendResetPasswordEmail(user.email, resetToken);
+    } catch (emailErr) {
+      console.error("⚠️ Failed to send password reset email:", emailErr.message);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send password reset email. Please try again later."
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "If an account with that email exists, a password reset link has been sent."
+    });
+
+  } catch (err) {
+    console.error("Forgot Password Error: ", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error during forgot password request"
+    });
+  }
+});
+
+// Reset Password Endpoint - Perform password reset using token
+router.post("/reset-password", authLimiter, async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Reset token and new password are required"
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 6 characters long"
+      });
+    }
+
+    const user = await User.findOne({ resetPasswordToken: token });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired password reset token"
+      });
+    }
+
+    if (user.resetPasswordExpires && user.resetPasswordExpires < new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "Password reset token has expired. Please request a new one."
+      });
+    }
+
+    // Set new password (pre('save') hook in UserSchema will automatically hash password)
+    user.password = newPassword;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    
+    // Invalidate refresh tokens for security across all logged in devices
+    user.refreshToken = "";
+
+    await user.save();
+    console.log(`Password reset successfully for user: ${user.username}`);
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset successful. You can now log in with your new password."
+    });
+
+  } catch (err) {
+    console.error("Reset Password Error: ", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error during password reset"
     });
   }
 });

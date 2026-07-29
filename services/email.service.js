@@ -58,8 +58,36 @@ const sendVerificationEmail = async (toEmail, token) => {
   return await sendEmail({ to: toEmail, subject, html });
 };
 
+/**
+ * Sends a password reset email with the reset token link
+ * @param {string} toEmail - Recipient email address
+ * @param {string} token - Reset password token
+ */
+const sendResetPasswordEmail = async (toEmail, token) => {
+  const resetLink = `${process.env.APP_BASE_URL || 'http://localhost:3000'}/auth/reset-password?token=${token}`;
+  
+  const subject = 'Reset Your Foody Password 🔑';
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+      <h2 style="color: #ff4757; text-align: center;">Password Reset Request 🔑</h2>
+      <p>Hello,</p>
+      <p>You requested to reset your password for your Foody account. Click the button below to set a new password:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${resetLink}" style="background-color: #ff4757; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Reset Password</a>
+      </div>
+      <p style="color: #666; font-size: 12px;">Or copy and paste this link into your browser:</p>
+      <p style="color: #0066cc; font-size: 12px; word-break: break-all;">${resetLink}</p>
+      <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+      <p style="color: #999; font-size: 11px;">This link will expire in 1 hour. If you did not request a password reset, please ignore this email.</p>
+    </div>
+  `;
+
+  return await sendEmail({ to: toEmail, subject, html });
+};
+
 module.exports = {
   transporter,
   sendEmail,
   sendVerificationEmail,
+  sendResetPasswordEmail,
 };
