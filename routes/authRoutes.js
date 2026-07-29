@@ -22,6 +22,8 @@ const { authLimiter } = require("../middlewares/rateLimiter");
 
 const crypto = require('crypto');
 
+const { sendVerificationEmail } = require("../services/email.service");
+
 // Signup logic to register a user
 router.post("/signup", authLimiter , signupValidationRules, validate, async (req, res) => {
   try {
@@ -53,7 +55,14 @@ router.post("/signup", authLimiter , signupValidationRules, validate, async (req
     });
     
     await newUser.save();
-    console.log("User registered with verification token. Verification pending.");
+    console.log("User registered with verification token. Sending verification email...");
+
+    // Attempt to send verification email
+    try {
+      await sendVerificationEmail(newUser.email, verificationToken);
+    } catch (emailErr) {
+      console.error("⚠️ Failed to send verification email:", emailErr.message);
+    }
 
     return res.status(201).json({
       success: true,
