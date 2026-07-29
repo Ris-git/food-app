@@ -16,6 +16,8 @@ const seedSuperAdmin = async () => {
       password: process.env.SUPERADMIN_PASSWORD || 'SuperAdmin123!',
       phone: process.env.SUPERADMIN_PHONE || '9999999999',
       role: 'superAdmin',
+      emailVerified: true,
+      isVerified: true
     };
 
     let user = await User.findOne({
@@ -24,6 +26,8 @@ const seedSuperAdmin = async () => {
 
     if (user) {
       user.role = 'superAdmin';
+      user.emailVerified = true;
+      user.isVerified = true;
       await user.save();
       console.log(`\n✅ Existing user '${user.username}' promoted to superAdmin successfully!`);
     } else {

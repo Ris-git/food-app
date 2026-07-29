@@ -32,10 +32,15 @@ router.post("/signup", authLimiter , signupValidationRules, validate, async (req
     // Check if the email or username is already registered
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "Username or email is already registered"
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`⚠️ [DEV MODE] Overwriting existing user '${email}' / '${username}' for testing...`);
+        await User.deleteOne({ _id: existingUser._id });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "Username or email is already registered"
+        });
+      }
     }
 
     // Generate secure random verification token and 24-hour expiry
@@ -79,6 +84,55 @@ router.post("/signup", authLimiter , signupValidationRules, validate, async (req
   }
 });
 
+// Email Verification Endpoint
+router.get("/verify-email", async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Verification token is required"
+      });
+    }
+
+    const user = await User.findOne({ verificationToken: token });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired verification token"
+      });
+    }
+
+    if (user.verificationTokenExpires && user.verificationTokenExpires < new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "Verification token has expired. Please request a new one."
+      });
+    }
+
+    // Update verification status and clear verification token
+    user.emailVerified = true;
+    user.isVerified = true;
+    user.verificationToken = null;
+    user.verificationTokenExpires = null;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Email verified successfully. You can now log in."
+    });
+
+  } catch (err) {
+    console.error("Verify Email Error: ", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error during email verification"
+    });
+  }
+});
+
 // Login Route
 router.post('/login', authLimiter , loginValidationRules, validate, async (req, res) => {
     try {
@@ -89,6 +143,14 @@ router.post('/login', authLimiter , loginValidationRules, validate, async (req, 
             return res.status(401).json({ 
                 success: false,
                 message: 'Invalid username or password' 
+            });
+        }
+
+        // Block unverified users from logging in (superAdmin is exempt)
+        if (foundUser.role !== 'superAdmin' && !foundUser.emailVerified && !foundUser.isVerified) {
+            return res.status(403).json({
+                success: false,
+                message: "Email not verified. Please check your inbox and verify your email address before logging in."
             });
         }
 
