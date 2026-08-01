@@ -32,9 +32,15 @@ app.use('/user', jwtAuthMiddleware, userRoutes); // Protected with JWT
 
 const menuRoutes = require('./routes/menuRoutes');
 const restaurantRoutes = require('./routes/restaurantRoutes');
+const partnerRoutes = require('./routes/partnerRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 app.use('/menu', menuRoutes);
 app.use('/restaurant', restaurantRoutes);
+app.use('/partner', partnerRoutes);
+app.use('/admin', adminRoutes);
+
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

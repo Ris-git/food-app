@@ -78,11 +78,12 @@ router.post("/signup", authLimiter , signupValidationRules, validate, async (req
     console.error("Signup Error: ", err);
     return res.status(500).json({ 
       success: false,
-      message: "Registration failed",
+      message: err.message || "Registration failed",
       error: err.message 
     });
   }
 });
+
 
 // Email Verification Endpoint
 router.get("/verify-email", async (req, res) => {

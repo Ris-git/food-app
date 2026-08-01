@@ -41,11 +41,14 @@ const validate = (req, res, next) => {
   
   // If there are errors, stop execution and return 400 Bad Request
   if (!errors.isEmpty()) {
+    const errorMessages = errors.array().map(err => err.msg);
     return res.status(400).json({
       success: false,
+      message: errorMessages.join(', '),
       errors: errors.array().map(err => ({ field: err.path, message: err.msg }))
     });
   }
+
   
   // If validation passed, pass control to the next middleware
   next();

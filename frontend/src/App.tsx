@@ -1,122 +1,285 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState } from 'react';
+import './App.css';
+import Login from './pages/Auth/Login';
+import Signup from './pages/Auth/Signup';
+import VerifyEmail from './pages/Auth/VerifyEmail';
+import PartnerApplication from './pages/Partner/Application';
+import AdminApplications from './pages/Admin/Applications';
+import { useAuth } from './features/auth/context/AuthContext';
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [currentView, setCurrentView] = useState<'home' | 'login' | 'signup' | 'verify' | 'partner' | 'admin'>('home');
+  const [location, setLocation] = useState('');
+  const [showLocationToast, setShowLocationToast] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeModal, setActiveModal] = useState<string | null>(null);
+
+  const { user, logout } = useAuth();
+
+  const handlePartnerWithUs = () => {
+    if (user) {
+      setCurrentView('partner');
+    } else {
+      setCurrentView('signup');
+    }
+  };
+
+  const handleGetTheApp = () => {
+    setActiveModal('Get the App clicked! (iOS & Android app download options)');
+  };
+
+  const handleSignIn = () => {
+    setCurrentView('login');
+  };
+
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (searchQuery.trim()) {
+      setActiveModal(`Searching for "${searchQuery}"...`);
+    } else {
+      setActiveModal('Please enter a dish or restaurant name to search.');
+    }
+  };
+
+  const locationsList = [
+    'Connaught Place, New Delhi',
+    'Bandra West, Mumbai',
+    'Indiranagar, Bengaluru',
+    'Jubilee Hills, Hyderabad',
+    'Sector 18, Noida'
+  ];
+
+  const handleLogout = async () => {
+    await logout();
+    setCurrentView('home');
+  };
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="foody-landing">
+      {/* Top Header Navigation */}
+      <header className="header">
+        <div className="logo-container" onClick={() => setCurrentView('home')}>
+          <div className="logo-icon">F</div>
+          <span className="logo-text">Foody</span>
         </div>
+
+        <nav className="nav-actions">
+          {user ? (
+            <>
+              <span style={{ fontSize: '14px', fontWeight: 600 }}>Hi, {user.name} ({user.role})</span>
+              {(user.role === 'admin' || user.role === 'superAdmin') && (
+                <button className="btn-mint-pill" onClick={() => setCurrentView('admin')}>
+                  Admin Console
+                </button>
+              )}
+              <button className="btn-ghost" onClick={() => setCurrentView('partner')}>
+                Partner Application
+              </button>
+              <button className="btn-outline-pill" onClick={handleLogout}>
+                Log out
+              </button>
+            </>
+          ) : (
+
+            <>
+              <button className="btn-ghost" onClick={handlePartnerWithUs}>
+                Partner with us
+              </button>
+              <button className="btn-outline-pill" onClick={() => setCurrentView('signup')}>
+                Sign up
+              </button>
+              <button className="btn-mint-pill" onClick={handleSignIn}>
+                Sign in
+              </button>
+            </>
+          )}
+        </nav>
+      </header>
+
+      {currentView === 'login' && (
         <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
+          <Login />
+          <p style={{ textAlign: 'center', marginTop: '12px' }}>
+            <button className="btn-ghost" onClick={() => setCurrentView('home')}>← Back to Home</button>
           </p>
         </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+      )}
+
+      {currentView === 'signup' && (
+        <div>
+          <Signup />
+          <p style={{ textAlign: 'center', marginTop: '12px' }}>
+            <button className="btn-ghost" onClick={() => setCurrentView('home')}>← Back to Home</button>
+          </p>
+        </div>
+      )}
+
+      {currentView === 'verify' && (
+        <div>
+          <VerifyEmail />
+          <p style={{ textAlign: 'center', marginTop: '12px' }}>
+            <button className="btn-ghost" onClick={() => setCurrentView('home')}>← Back to Home</button>
+          </p>
+        </div>
+      )}
+
+      {currentView === 'partner' && (
+        <div>
+          <PartnerApplication />
+          <p style={{ textAlign: 'center', marginTop: '12px' }}>
+            <button className="btn-ghost" onClick={() => setCurrentView('home')}>← Back to Home</button>
+          </p>
+        </div>
+      )}
+
+      {currentView === 'admin' && (
+        <div>
+          <AdminApplications />
+          <p style={{ textAlign: 'center', marginTop: '12px' }}>
+            <button className="btn-ghost" onClick={() => setCurrentView('home')}>← Back to Home</button>
+          </p>
+        </div>
+      )}
+
+      {currentView === 'home' && (
+
+
+        <>
+
+      {/* Decorative Flanking Food Artwork (SVG) */}
+      <svg className="food-prop-left" viewBox="0 0 200 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M40 80 Q10 140 30 200 Q120 220 170 160 Q180 80 120 40 Z" fill="#FFFFFF" opacity="0.08"/>
+        {/* Fresh Veggies Bag Illustration */}
+        <rect x="50" y="100" width="100" height="110" rx="16" fill="#F8FAFC" />
+        <path d="M50 100 L70 60 L130 60 L150 100 Z" fill="#E2E8F0" />
+        <circle cx="80" cy="50" r="18" fill="#10B981" />
+        <circle cx="120" cy="45" r="22" fill="#F59E0B" />
+        <circle cx="100" cy="35" r="16" fill="#3B82F6" />
+        <path d="M65 40 Q75 10 90 35" stroke="#047857" strokeWidth="4" strokeLinecap="round" />
+      </svg>
+
+      <svg className="food-prop-right" viewBox="0 0 220 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* Gourmet Dish / Sushi Platter Graphic */}
+        <ellipse cx="110" cy="150" rx="90" ry="50" fill="#FFFFFF" opacity="0.95" />
+        <ellipse cx="110" cy="150" rx="75" ry="38" fill="#064E3B" />
+        <circle cx="80" cy="145" r="16" fill="#10B981" />
+        <circle cx="110" cy="148" r="16" fill="#34D399" />
+        <circle cx="140" cy="145" r="16" fill="#F59E0B" />
+        <circle cx="80" cy="145" r="8" fill="#FFFFFF" />
+        <circle cx="110" cy="148" r="8" fill="#FFFFFF" />
+        <circle cx="140" cy="145" r="8" fill="#FFFFFF" />
+        {/* Chopsticks */}
+        <line x1="30" y1="90" x2="160" y2="175" stroke="#F59E0B" strokeWidth="5" strokeLinecap="round" />
+        <line x1="45" y1="80" x2="175" y2="165" stroke="#F59E0B" strokeWidth="4" strokeLinecap="round" />
+      </svg>
+
+      {/* Main Hero Content */}
+      <main className="hero-section">
+        <h1 className="hero-title">
+          Order food. Discover best restaurants. Foody it!
+        </h1>
+
+        {/* Dual Input Bar */}
+        <div className="input-bar-container">
+          {/* Location Picker */}
+          <div className="location-input-wrapper">
+            <div 
+              className="input-pill"
+              onClick={() => {
+                const nextLoc = locationsList[Math.floor(Math.random() * locationsList.length)];
+                setLocation(nextLoc);
+              }}
+            >
+              <svg className="icon-location" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+              </svg>
+              <span className={`location-text ${location ? 'selected' : ''}`}>
+                {location || 'Enter your delivery location'}
+              </span>
+              <svg className="icon-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </div>
+
+            {/* Location Toast Alert */}
+            {showLocationToast && (
+              <div className="location-toast">
+                <span>We are unable to fetch your location currently. Click to pick.</span>
+                <button className="toast-close" onClick={() => setShowLocationToast(false)}>✕</button>
+              </div>
+            )}
+          </div>
+
+          {/* Search Bar */}
+          <div className="search-input-wrapper">
+            <form onSubmit={handleSearchSubmit} className="input-pill">
+              <input
+                type="text"
+                className="search-field"
+                placeholder="Search for restaurant, item or more"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <svg 
+                className="icon-search" 
+                width="20" 
+                height="20" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2.5"
+                onClick={() => handleSearchSubmit()}
+              >
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35"/>
+              </svg>
+            </form>
+          </div>
+        </div>
+      </main>
+
+      {/* Interactive Modal Toast for Button Clicks */}
+      {activeModal && (
+        <div 
+          style={{
+            position: 'fixed',
+            bottom: '32px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#0F172A',
+            color: '#FFFFFF',
+            padding: '16px 28px',
+            borderRadius: '9999px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+            zIndex: 100,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            fontSize: '15px',
+            fontWeight: 600,
+            animation: 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+          }}
         >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+          <span>{activeModal}</span>
+          <button 
+            onClick={() => setActiveModal(null)}
+            style={{
+              background: '#10B981',
+              border: 'none',
+              color: '#022C22',
+              borderRadius: '9999px',
+              padding: '4px 14px',
+              cursor: 'pointer',
+              fontWeight: 800,
+              fontSize: '13px'
+            }}
+          >
+            OK
+          </button>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      )}
+      </>
+      )}
+    </div>
+  );
 }
-
-export default App
