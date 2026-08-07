@@ -3,7 +3,8 @@ import StepProgressBar from '../../features/partner/components/StepProgressBar';
 import StepBrandProfile from '../../features/partner/components/StepBrandProfile';
 import StepLocationMap from '../../features/partner/components/StepLocationMap';
 import StepScheduleConfig from '../../features/partner/components/StepScheduleConfig';
-import type { OperatingHours, MealSlots } from '../../types';
+import StepMenuImport from '../../features/partner/components/StepMenuImport';
+import type { OperatingHours, MealSlots, StagedMenuItem } from '../../types';
 
 const DEFAULT_SCHEDULE = { isOpen: true, openTime: '09:00', closeTime: '22:00' };
 
@@ -37,6 +38,7 @@ export const WizardContainer: React.FC = () => {
       lunch: { active: true, start: '12:00', end: '16:00' },
       dinner: { active: true, start: '19:00', end: '23:00' },
     } as MealSlots,
+    stagedMenuItems: [] as StagedMenuItem[],
   });
 
   const handleFieldChange = (field: string, value: any) => {
@@ -109,16 +111,25 @@ export const WizardContainer: React.FC = () => {
         />
       )}
 
-      {currentStep > 3 && (
+      {currentStep === 4 && (
+        <StepMenuImport
+          stagedMenuItems={formData.stagedMenuItems}
+          onChangeMenuItems={(items) => handleFieldChange('stagedMenuItems', items)}
+          onNext={handleNextStep}
+          onBack={handlePrevStep}
+        />
+      )}
+
+      {currentStep > 4 && (
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
           <h4 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '12px' }}>
             Step {currentStep} Configured Cleanly
           </h4>
           <p style={{ color: '#64748B', fontSize: '14px', marginBottom: '20px' }}>
-            Schedule Configured: <strong>Monday ({formData.operatingHours.monday.openTime} - {formData.operatingHours.monday.closeTime})</strong>
+            Menu Items Parsed: <strong>{formData.stagedMenuItems.length} items</strong>
           </p>
-          <button className="btn-ghost" onClick={() => setCurrentStep(3)}>
-            ← Back to Step 3: Schedule
+          <button className="btn-ghost" onClick={() => setCurrentStep(4)}>
+            ← Back to Step 4: Menu Import
           </button>
         </div>
       )}
