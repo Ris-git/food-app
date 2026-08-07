@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import StepProgressBar from '../../features/partner/components/StepProgressBar';
 import StepBrandProfile from '../../features/partner/components/StepBrandProfile';
 import StepLocationMap from '../../features/partner/components/StepLocationMap';
+import StepScheduleConfig from '../../features/partner/components/StepScheduleConfig';
+import type { OperatingHours, MealSlots } from '../../types';
+
+const DEFAULT_SCHEDULE = { isOpen: true, openTime: '09:00', closeTime: '22:00' };
 
 export const WizardContainer: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -19,6 +23,20 @@ export const WizardContainer: React.FC = () => {
       coordinates: [77.6412, 12.9719] as [number, number],
     },
     description: '',
+    operatingHours: {
+      monday: { ...DEFAULT_SCHEDULE },
+      tuesday: { ...DEFAULT_SCHEDULE },
+      wednesday: { ...DEFAULT_SCHEDULE },
+      thursday: { ...DEFAULT_SCHEDULE },
+      friday: { ...DEFAULT_SCHEDULE },
+      saturday: { ...DEFAULT_SCHEDULE },
+      sunday: { ...DEFAULT_SCHEDULE },
+    } as OperatingHours,
+    mealSlots: {
+      breakfast: { active: true, start: '08:00', end: '11:00' },
+      lunch: { active: true, start: '12:00', end: '16:00' },
+      dinner: { active: true, start: '19:00', end: '23:00' },
+    } as MealSlots,
   });
 
   const handleFieldChange = (field: string, value: any) => {
@@ -80,20 +98,27 @@ export const WizardContainer: React.FC = () => {
         />
       )}
 
-      {currentStep > 2 && (
+      {currentStep === 3 && (
+        <StepScheduleConfig
+          operatingHours={formData.operatingHours}
+          mealSlots={formData.mealSlots}
+          onChangeOperatingHours={(hours) => handleFieldChange('operatingHours', hours)}
+          onChangeMealSlots={(slots) => handleFieldChange('mealSlots', slots)}
+          onNext={handleNextStep}
+          onBack={handlePrevStep}
+        />
+      )}
+
+      {currentStep > 3 && (
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
           <h4 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '12px' }}>
             Step {currentStep} Configured Cleanly
           </h4>
           <p style={{ color: '#64748B', fontSize: '14px', marginBottom: '20px' }}>
-            Location: <strong>{formData.formattedAddress || formData.address}</strong> (
-            <code>
-              [{formData.location.coordinates[0]}, {formData.location.coordinates[1]}]
-            </code>
-            )
+            Schedule Configured: <strong>Monday ({formData.operatingHours.monday.openTime} - {formData.operatingHours.monday.closeTime})</strong>
           </p>
-          <button className="btn-ghost" onClick={() => setCurrentStep(2)}>
-            ← Back to Step 2: Location
+          <button className="btn-ghost" onClick={() => setCurrentStep(3)}>
+            ← Back to Step 3: Schedule
           </button>
         </div>
       )}
