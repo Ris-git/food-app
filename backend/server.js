@@ -34,11 +34,14 @@ const menuRoutes = require('./routes/menuRoutes');
 const restaurantRoutes = require('./routes/restaurantRoutes');
 const partnerRoutes = require('./routes/partnerRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const mediaRoutes = require('./routes/mediaRoutes');
 
 app.use('/menu', menuRoutes);
 app.use('/restaurant', restaurantRoutes);
 app.use('/partner', partnerRoutes);
 app.use('/admin', adminRoutes);
+app.use('/media', mediaRoutes);
+
 
 
 
