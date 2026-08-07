@@ -2,10 +2,9 @@ const express = require('express');
 const router = express.Router();
 const RestaurantApplication = require('../models/RestaurantApplication');
 const Restaurant = require('../models/Restaurant');
+const MenuItem = require('../models/MenuItem');
 const User = require('../models/User');
 const { jwtAuthMiddleware } = require('../middlewares/authMiddleware');
-const authorize = require('../middlewares/roleMiddleware');
-const { permissions } = require('../config/roles');
 
 // Helper role check for Admin / SuperAdmin
 const verifyAdminAccess = (req, res, next) => {
@@ -40,11 +39,10 @@ router.get('/applications', jwtAuthMiddleware, verifyAdminAccess, async (req, re
   }
 });
 
-// PATCH /admin/applications/:id/approve - Approve application, create Restaurant, upgrade User.role to 'restaurant'
+// PATCH /admin/applications/:id/approve - Approve application, create Restaurant with V2 data, upgrade User.role, seed MenuItems
 router.patch('/applications/:id/approve', jwtAuthMiddleware, verifyAdminAccess, async (req, res) => {
   try {
     const applicationId = req.params.id;
-
     const application = await RestaurantApplication.findById(applicationId);
 
     if (!application) {
@@ -66,25 +64,51 @@ router.patch('/applications/:id/approve', jwtAuthMiddleware, verifyAdminAccess, 
     application.adminRemarks = req.body.adminRemarks || 'Approved by Admin';
     await application.save();
 
-    // 2. Create Restaurant Record linked to user
+    // 2. Create Restaurant Record linked to user (V2 Enabled)
     const newRestaurant = new Restaurant({
       name: application.restaurantName,
-      address: application.address,
+      franchiseName: application.franchiseName || '',
+      logoUrl: application.logoUrl || '',
+      address: application.address || application.formattedAddress,
+      formattedAddress: application.formattedAddress || application.address,
+      location: application.location || { type: 'Point', coordinates: [77.6412, 12.9719] },
+      phone: application.phone,
+      cuisine: application.cuisine,
+      operatingHours: application.operatingHours,
+      mealSlots: application.mealSlots,
       user: application.user,
       operationalStatus: 'OPEN',
     });
     await newRestaurant.save();
 
-    // 3. Upgrade User.role to 'restaurant'
+    // 3. Seed MenuItems if staged menu items exist
+    let seededMenuItemsCount = 0;
+    if (application.stagedMenuItems && application.stagedMenuItems.length > 0) {
+      const menuDocs = application.stagedMenuItems.map((item) => ({
+        title: item.name || 'Unnamed Item',
+        type: item.isVeg ? 'veg' : 'non-veg',
+        description: item.description || '',
+        price: item.price || 0,
+        restaurant: newRestaurant._id,
+        isAvailable: true,
+      }));
+      const seeded = await MenuItem.insertMany(menuDocs);
+      seededMenuItemsCount = seeded.length;
+    }
+
+    // 4. Upgrade User.role to 'restaurant'
     await User.findByIdAndUpdate(application.user, { role: 'restaurant' });
 
-    console.log(`✅ Application ${applicationId} approved. Created restaurant '${newRestaurant.name}' and upgraded user to 'restaurant' role.`);
+    console.log(
+      `✅ Application ${applicationId} approved. Created restaurant '${newRestaurant.name}', seeded ${seededMenuItemsCount} menu items, and upgraded user to 'restaurant' role.`
+    );
 
     return res.status(200).json({
       success: true,
-      message: 'Application approved successfully! Restaurant created and user role upgraded.',
+      message: 'Application approved successfully! Restaurant created, menu items seeded, and user role upgraded.',
       application,
       restaurant: newRestaurant,
+      seededMenuItemsCount,
     });
   } catch (err) {
     console.error('Approve Application Error:', err);

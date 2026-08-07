@@ -4,12 +4,21 @@ import StepBrandProfile from '../../features/partner/components/StepBrandProfile
 import StepLocationMap from '../../features/partner/components/StepLocationMap';
 import StepScheduleConfig from '../../features/partner/components/StepScheduleConfig';
 import StepMenuImport from '../../features/partner/components/StepMenuImport';
+import StepReviewSubmission from '../../features/partner/components/StepReviewSubmission';
+import { partnerService } from '../../features/partner/services/partnerService';
 import type { OperatingHours, MealSlots, StagedMenuItem } from '../../types';
 
 const DEFAULT_SCHEDULE = { isOpen: true, openTime: '09:00', closeTime: '22:00' };
 
-export const WizardContainer: React.FC = () => {
+interface WizardContainerProps {
+  onSuccess?: () => void;
+}
+
+export const WizardContainer: React.FC<WizardContainerProps> = ({ onSuccess }) => {
   const [currentStep, setCurrentStep] = useState<number>(1);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmittedSuccess, setIsSubmittedSuccess] = useState<boolean>(false);
 
   const [formData, setFormData] = useState({
     restaurantName: '',
@@ -59,6 +68,66 @@ export const WizardContainer: React.FC = () => {
     }
   };
 
+  const handleFinalSubmit = async () => {
+    setError(null);
+    setSubmitting(true);
+
+    try {
+      const payload = {
+        restaurantName: formData.restaurantName,
+        franchiseName: formData.franchiseName,
+        logoUrl: formData.logoUrl,
+        phone: formData.phone,
+        cuisine: formData.cuisine,
+        address: formData.formattedAddress || formData.address,
+        formattedAddress: formData.formattedAddress || formData.address,
+        location: formData.location,
+        description: formData.description,
+        operatingHours: formData.operatingHours,
+        mealSlots: formData.mealSlots,
+        stagedMenuItems: formData.stagedMenuItems,
+      };
+
+      const res = await partnerService.applyForPartner(payload);
+      if (res.success || res.application) {
+        setIsSubmittedSuccess(true);
+        if (onSuccess) onSuccess();
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to submit partner application.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (isSubmittedSuccess) {
+    return (
+      <div
+        style={{
+          maxWidth: '600px',
+          margin: '40px auto',
+          padding: '40px',
+          backgroundColor: '#FFFFFF',
+          borderRadius: '24px',
+          color: '#0F172A',
+          boxShadow: '0 12px 32px rgba(0,0,0,0.12)',
+          textAlign: 'center',
+        }}
+      >
+        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
+        <h3 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '8px', fontFamily: 'var(--font-display)', color: '#059669' }}>
+          Application Submitted Successfully!
+        </h3>
+        <p style={{ fontSize: '14px', color: '#64748B', marginBottom: '24px' }}>
+          Your partner onboarding application with <strong>{formData.stagedMenuItems.length} staged menu items</strong> is now under Admin review.
+        </p>
+        <button className="btn-ghost" onClick={() => window.location.reload()}>
+          View Application Status →
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
@@ -72,6 +141,12 @@ export const WizardContainer: React.FC = () => {
       }}
     >
       <StepProgressBar currentStep={currentStep} onStepClick={handleStepClick} />
+
+      {error && (
+        <div style={{ padding: '12px', backgroundColor: '#FEE2E2', color: '#991B1B', borderRadius: '12px', marginBottom: '16px', fontSize: '14px' }}>
+          {error}
+        </div>
+      )}
 
       {currentStep === 1 && (
         <StepBrandProfile
@@ -120,18 +195,13 @@ export const WizardContainer: React.FC = () => {
         />
       )}
 
-      {currentStep > 4 && (
-        <div style={{ textAlign: 'center', padding: '40px 0' }}>
-          <h4 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '12px' }}>
-            Step {currentStep} Configured Cleanly
-          </h4>
-          <p style={{ color: '#64748B', fontSize: '14px', marginBottom: '20px' }}>
-            Menu Items Parsed: <strong>{formData.stagedMenuItems.length} items</strong>
-          </p>
-          <button className="btn-ghost" onClick={() => setCurrentStep(4)}>
-            ← Back to Step 4: Menu Import
-          </button>
-        </div>
+      {currentStep === 5 && (
+        <StepReviewSubmission
+          formData={formData}
+          onSubmit={handleFinalSubmit}
+          onBack={handlePrevStep}
+          submitting={submitting}
+        />
       )}
     </div>
   );

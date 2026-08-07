@@ -5,9 +5,8 @@ const User = require('../models/User');
 const { jwtAuthMiddleware } = require('../middlewares/authMiddleware');
 const { partnerValidationRules, validatePartner } = require('../middlewares/ValidatePartner');
 
-// POST /partner/apply - Submit a new restaurant partner application
+// POST /partner/apply - Submit a new restaurant partner application (V2 Enabled)
 router.post('/apply', jwtAuthMiddleware, partnerValidationRules, validatePartner, async (req, res) => {
-
   try {
     const userId = req.user.id;
 
@@ -20,15 +19,33 @@ router.post('/apply', jwtAuthMiddleware, partnerValidationRules, validatePartner
       });
     }
 
-    const { restaurantName, description, address, phone, cuisine } = req.body;
+    const {
+      restaurantName,
+      franchiseName,
+      logoUrl,
+      description,
+      address,
+      formattedAddress,
+      location,
+      phone,
+      cuisine,
+      operatingHours,
+      mealSlots,
+      stagedMenuItems,
+    } = req.body;
 
-    if (!restaurantName || !address || !phone || !cuisine) {
+    if (!restaurantName || (!address && !formattedAddress) || !phone || !cuisine) {
       return res.status(400).json({
         success: false,
         message: 'Please provide all required fields (restaurantName, address, phone, cuisine).',
       });
     }
 
+    // Default GeoJSON location if omitted
+    const finalLocation = location || {
+      type: 'Point',
+      coordinates: [77.6412, 12.9719],
+    };
 
     // Check for existing applications from this user
     const existingApplication = await RestaurantApplication.findOne({ user: userId });
@@ -53,10 +70,17 @@ router.post('/apply', jwtAuthMiddleware, partnerValidationRules, validatePartner
       // If rejected, update and resubmit existing application
       if (existingApplication.status === 'rejected') {
         existingApplication.restaurantName = restaurantName;
+        existingApplication.franchiseName = franchiseName || '';
+        existingApplication.logoUrl = logoUrl || '';
         existingApplication.description = description || '';
-        existingApplication.address = address;
+        existingApplication.address = formattedAddress || address;
+        existingApplication.formattedAddress = formattedAddress || address;
+        existingApplication.location = finalLocation;
         existingApplication.phone = phone;
         existingApplication.cuisine = cuisine;
+        if (operatingHours) existingApplication.operatingHours = operatingHours;
+        if (mealSlots) existingApplication.mealSlots = mealSlots;
+        if (stagedMenuItems) existingApplication.stagedMenuItems = stagedMenuItems;
         existingApplication.status = 'pending';
         existingApplication.adminRemarks = '';
 
@@ -70,14 +94,21 @@ router.post('/apply', jwtAuthMiddleware, partnerValidationRules, validatePartner
       }
     }
 
-    // Create a new application
+    // Create a new application (V2 Enabled)
     const newApplication = new RestaurantApplication({
       user: userId,
       restaurantName,
+      franchiseName: franchiseName || '',
+      logoUrl: logoUrl || '',
       description: description || '',
-      address,
+      address: formattedAddress || address,
+      formattedAddress: formattedAddress || address,
+      location: finalLocation,
       phone,
       cuisine,
+      operatingHours,
+      mealSlots,
+      stagedMenuItems: stagedMenuItems || [],
       status: 'pending',
     });
 
