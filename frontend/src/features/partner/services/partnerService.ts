@@ -50,9 +50,10 @@ export const partnerService = {
   },
 
   async getUploadSignature(): Promise<UploadSignatureResponse> {
-    return await apiRequest<UploadSignatureResponse>('/media/upload-signature', {
+    const res = await apiRequest<any>('/media/upload-signature', {
       method: 'GET',
     });
+    return res as UploadSignatureResponse;
   },
 
   async uploadLogoToImageKit(file: File): Promise<{ url: string; fileId: string }> {

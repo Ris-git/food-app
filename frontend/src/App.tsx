@@ -24,13 +24,10 @@ export default function App() {
     }
   };
 
-  const handleGetTheApp = () => {
-    setActiveModal('Get the App clicked! (iOS & Android app download options)');
-  };
-
   const handleSignIn = () => {
     setCurrentView('login');
   };
+
 
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();

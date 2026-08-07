@@ -41,7 +41,16 @@ export const Application: React.FC = () => {
     return <Status application={application} onEditResubmit={() => setIsEditing(true)} />;
   }
 
-  return <WizardContainer />;
+  return (
+    <div>
+      {error && (
+        <div style={{ maxWidth: '680px', margin: '20px auto 0', padding: '12px', backgroundColor: '#FEE2E2', color: '#991B1B', borderRadius: '12px', textAlign: 'center' }}>
+          {error}
+        </div>
+      )}
+      <WizardContainer />
+    </div>
+  );
 };
 
 export default Application;

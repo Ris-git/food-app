@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import StepProgressBar from '../../features/partner/components/StepProgressBar';
 import StepBrandProfile from '../../features/partner/components/StepBrandProfile';
+import StepLocationMap from '../../features/partner/components/StepLocationMap';
 
 export const WizardContainer: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -26,6 +27,10 @@ export const WizardContainer: React.FC = () => {
 
   const handleNextStep = () => {
     setCurrentStep((prev) => Math.min(prev + 1, 5));
+  };
+
+  const handlePrevStep = () => {
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
   const handleStepClick = (step: number) => {
@@ -62,16 +67,33 @@ export const WizardContainer: React.FC = () => {
         />
       )}
 
-      {currentStep > 1 && (
+      {currentStep === 2 && (
+        <StepLocationMap
+          formData={{
+            address: formData.address,
+            formattedAddress: formData.formattedAddress,
+            location: formData.location,
+          }}
+          onChange={handleFieldChange}
+          onNext={handleNextStep}
+          onBack={handlePrevStep}
+        />
+      )}
+
+      {currentStep > 2 && (
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
           <h4 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '12px' }}>
             Step {currentStep} Configured Cleanly
           </h4>
           <p style={{ color: '#64748B', fontSize: '14px', marginBottom: '20px' }}>
-            Brand Profile data collected: <strong>{formData.restaurantName}</strong> ({formData.cuisine})
+            Location: <strong>{formData.formattedAddress || formData.address}</strong> (
+            <code>
+              [{formData.location.coordinates[0]}, {formData.location.coordinates[1]}]
+            </code>
+            )
           </p>
-          <button className="btn-ghost" onClick={() => setCurrentStep(1)}>
-            ← Back to Step 1: Brand Profile
+          <button className="btn-ghost" onClick={() => setCurrentStep(2)}>
+            ← Back to Step 2: Location
           </button>
         </div>
       )}
