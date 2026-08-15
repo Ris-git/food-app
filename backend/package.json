@@ -19,6 +19,7 @@
     "dev": "nodemon server.js",
     "seed:plans": "node scripts/seedPlans.js",
     "migrate:growth-trials": "node scripts/migrateGrowthTrials.js",
+    "sync:razorpay-plans": "node scripts/syncRazorpayPlans.js",
     "seed:superadmin": "node scripts/seedSuperAdmin.js",
     "test:email": "node scripts/testEmail.js",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -39,6 +40,7 @@
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
     "rate-limit-redis": "^6.0.0",
+    "razorpay": "^2.9.8",
     "redis": "^6.1.0"
   }
 }
