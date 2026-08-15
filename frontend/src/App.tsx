@@ -33,6 +33,13 @@ export default function App() {
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
   const { user, logout } = useAuth();
+  const profileName = user?.name || user?.username || 'Account';
+  const profileInitials = profileName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('');
 
   // Auto-route restaurant partners to their dashboard on login
   useEffect(() => {
@@ -128,7 +135,7 @@ export default function App() {
                   cursor: 'pointer',
                 }}
               >
-                MJ
+                {profileInitials}
               </button>
 
               {profileOpen && (
@@ -147,7 +154,7 @@ export default function App() {
                   }}
                 >
                   <div style={{ padding: '12px 22px 16px', borderBottom: '1px solid #E2E8F0' }}>
-                    <div style={{ color: '#0F172A', fontSize: '16px', fontWeight: 750 }}>Modi Ji</div>
+                    <div style={{ color: '#0F172A', fontSize: '16px', fontWeight: 750 }}>{profileName}</div>
                     <div style={{ color: '#64748B', fontSize: '12px', marginTop: '3px' }}>{user.username}</div>
                   </div>
 

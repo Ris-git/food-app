@@ -89,7 +89,7 @@ export type Restaurant = {
   location: LocationPoint;
   operatingHours?: OperatingHours;
   mealSlots?: MealSlots;
-  operationalStatus: 'OPEN' | 'CLOSED' | 'BUSY';
+  operationalStatus: 'OPEN' | 'CLOSED' | 'BUSY' | 'TEMPORARILY_UNAVAILABLE';
   createdAt?: string;
   updatedAt?: string;
 };
@@ -128,6 +128,8 @@ export type Subscription = {
   providerStatus: string | null;
   pendingPlan: Plan | null;
   pendingProviderStatus: string | null;
+  scheduledPlan: Plan | null;
+  scheduledPlanChangeAt: string | null;
   trialEndsAt: string | null;
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;

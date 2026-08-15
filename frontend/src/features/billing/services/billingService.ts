@@ -13,6 +13,7 @@ export type CurrentSubscriptionResponse = {
   subscription: Subscription;
   plan: Plan;
   pendingPlan: Plan | null;
+  scheduledPlan: Plan | null;
   trialDaysRemaining: number | null;
 };
 
@@ -21,6 +22,12 @@ export type CancelSubscriptionResponse = {
   message: string;
   cancellationType: 'upcoming' | 'period_end';
   accessEndsAt?: string | null;
+};
+
+export type PlanChangeResponse = {
+  success: boolean;
+  message: string;
+  changeAt?: string | null;
 };
 
 export type CheckoutResponse = {
@@ -82,5 +89,18 @@ export const billingService = {
     return (await apiRequest<CancelSubscriptionResponse>('/billing/subscription/cancel', {
       method: 'POST',
     })) as unknown as CancelSubscriptionResponse;
+  },
+
+  async changePlan(planId: string): Promise<PlanChangeResponse> {
+    return (await apiRequest<PlanChangeResponse>('/billing/subscription/change-plan', {
+      method: 'POST',
+      body: JSON.stringify({ planId }),
+    })) as unknown as PlanChangeResponse;
+  },
+
+  async cancelPlanChange(): Promise<PlanChangeResponse> {
+    return (await apiRequest<PlanChangeResponse>('/billing/subscription/change-plan/cancel', {
+      method: 'POST',
+    })) as unknown as PlanChangeResponse;
   },
 };

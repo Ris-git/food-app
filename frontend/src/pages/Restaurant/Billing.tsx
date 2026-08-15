@@ -76,6 +76,7 @@ export const Billing: React.FC<BillingProps> = ({ onBackToDashboard }) => {
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
   const [confirmingCancellation, setConfirmingCancellation] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [changingPlan, setChangingPlan] = useState(false);
 
   const loadBilling = async () => {
     try {
@@ -123,6 +124,13 @@ export const Billing: React.FC<BillingProps> = ({ onBackToDashboard }) => {
     try {
       setCheckoutPlanId(selectedPlan._id);
       setCheckoutMessage(null);
+      if (current?.subscription.status === 'active' && current.subscription.provider === 'razorpay') {
+        setChangingPlan(true);
+        const response = await billingService.changePlan(selectedPlan._id);
+        setCheckoutMessage(response.message);
+        await loadBilling();
+        return;
+      }
       const response = await billingService.createCheckout(selectedPlan._id);
       await loadRazorpayCheckout();
 
@@ -152,6 +160,23 @@ export const Billing: React.FC<BillingProps> = ({ onBackToDashboard }) => {
     } catch (err: unknown) {
       setCheckoutMessage(err instanceof Error ? err.message : 'Unable to open checkout.');
       setCheckoutPlanId(null);
+    } finally {
+      setChangingPlan(false);
+      if (current?.subscription.status === 'active') setCheckoutPlanId(null);
+    }
+  };
+
+  const cancelPlanChange = async () => {
+    try {
+      setChangingPlan(true);
+      setCheckoutMessage(null);
+      const response = await billingService.cancelPlanChange();
+      setCheckoutMessage(response.message);
+      await loadBilling();
+    } catch (err: unknown) {
+      setCheckoutMessage(err instanceof Error ? err.message : 'Unable to cancel the scheduled plan change.');
+    } finally {
+      setChangingPlan(false);
     }
   };
 
@@ -191,7 +216,7 @@ export const Billing: React.FC<BillingProps> = ({ onBackToDashboard }) => {
     );
   }
 
-  const { subscription, plan, pendingPlan, trialDaysRemaining } = current;
+  const { subscription, plan, pendingPlan, scheduledPlan, trialDaysRemaining } = current;
   const hasAuthorizedPendingPlan = Boolean(
     pendingPlan && subscription.pendingProviderStatus === 'authenticated'
   );
@@ -257,6 +282,25 @@ export const Billing: React.FC<BillingProps> = ({ onBackToDashboard }) => {
           </div>
         )}
 
+        {scheduledPlan && (
+          <div style={{ marginTop: '20px', paddingTop: '18px', borderTop: '1px solid #E2E8F0' }}>
+            <div style={{ color: '#0F172A', fontSize: '14px', fontWeight: 700 }}>
+              Scheduled plan: {scheduledPlan.displayName}
+            </div>
+            <p style={{ margin: '5px 0 10px', color: '#64748B', fontSize: '13px' }}>
+              Your plan and recurring price change on {formatDate(subscription.scheduledPlanChangeAt || subscription.currentPeriodEnd)}.
+            </p>
+            <button
+              type="button"
+              disabled={changingPlan}
+              onClick={cancelPlanChange}
+              style={{ padding: 0, background: 'none', border: 0, color: '#B91C1C', fontSize: '13px', fontWeight: 700, cursor: changingPlan ? 'not-allowed' : 'pointer' }}
+            >
+              {changingPlan ? 'Cancelling change...' : 'Keep current plan'}
+            </button>
+          </div>
+        )}
+
         {(pendingPlan || canCancelPaidPlan) && !subscription.cancelAtPeriodEnd && (
           <div style={{ marginTop: '18px' }}>
             {confirmingCancellation ? (
@@ -311,7 +355,10 @@ export const Billing: React.FC<BillingProps> = ({ onBackToDashboard }) => {
                 isCurrent={availablePlan._id === plan._id && subscription.status !== 'trial'}
                 isTrialEntitlement={availablePlan._id === plan._id && subscription.status === 'trial'}
                 isPendingAuthorized={hasAuthorizedPendingPlan && availablePlan._id === pendingPlan?._id}
+                isScheduled={availablePlan._id === scheduledPlan?._id}
+                isDisabled={Boolean(scheduledPlan || subscription.cancelAtPeriodEnd || (pendingPlan && availablePlan._id !== pendingPlan._id))}
                 isLoading={checkoutPlanId === availablePlan._id}
+                actionLabel={subscription.status === 'active' && subscription.provider === 'razorpay' ? `Switch to ${availablePlan.displayName}` : undefined}
                 onSelect={startCheckout}
               />
             ))}

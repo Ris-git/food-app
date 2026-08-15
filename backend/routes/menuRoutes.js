@@ -16,6 +16,13 @@ router.post(
   menuController.addMenuItem
 );
 
+router.post(
+  "/import",
+  jwtAuthMiddleware,
+  authorize([permissions.CREATE_MENU, permissions.MANAGE_MENU, permissions.ADMIN_ALL]),
+  menuController.importMenuItems
+);
+
 router.put(
   "/:id",
   jwtAuthMiddleware,

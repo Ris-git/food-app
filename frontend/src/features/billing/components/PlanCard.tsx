@@ -7,6 +7,9 @@ type PlanCardProps = {
   isTrialEntitlement: boolean;
   isPendingAuthorized: boolean;
   isLoading: boolean;
+  isScheduled: boolean;
+  isDisabled: boolean;
+  actionLabel?: string;
   onSelect: (plan: Plan) => void;
 };
 
@@ -34,8 +37,8 @@ const formatPrice = (plan: Plan) => {
   }).format(plan.price / 100);
 };
 
-export const PlanCard: React.FC<PlanCardProps> = ({ plan, isCurrent, isTrialEntitlement, isPendingAuthorized, isLoading, onSelect }) => {
-  const canCheckout = !isCurrent && !isPendingAuthorized && plan.price > 0 && plan.billingInterval !== 'none';
+export const PlanCard: React.FC<PlanCardProps> = ({ plan, isCurrent, isTrialEntitlement, isPendingAuthorized, isLoading, isScheduled, isDisabled, actionLabel, onSelect }) => {
+  const canCheckout = !isDisabled && !isCurrent && !isPendingAuthorized && !isScheduled && plan.price > 0 && plan.billingInterval !== 'none';
   return (
     <article
       style={{
@@ -60,6 +63,11 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, isCurrent, isTrialEnti
         {isPendingAuthorized && (
           <span style={{ color: '#1D4ED8', backgroundColor: '#EFF6FF', padding: '4px 9px', borderRadius: '6px', fontSize: '11px', fontWeight: 700 }}>
             Upcoming
+          </span>
+        )}
+        {isScheduled && (
+          <span style={{ color: '#7C3AED', backgroundColor: '#F5F3FF', padding: '4px 9px', borderRadius: '6px', fontSize: '11px', fontWeight: 700 }}>
+            Scheduled
           </span>
         )}
       </div>
@@ -104,12 +112,16 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, isCurrent, isTrialEnti
       >
         {isCurrent
           ? 'Current plan'
+          : isScheduled
+            ? 'Plan change scheduled'
           : isPendingAuthorized
             ? 'Subscription authorized'
           : plan.price === 0
             ? 'Included automatically'
             : isLoading
               ? 'Opening checkout...'
+              : actionLabel
+                ? actionLabel
               : isTrialEntitlement
                 ? `Subscribe to ${plan.displayName}`
                 : `Choose ${plan.displayName}`}

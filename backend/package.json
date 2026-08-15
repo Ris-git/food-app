@@ -20,6 +20,9 @@
     "seed:plans": "node scripts/seedPlans.js",
     "migrate:growth-trials": "node scripts/migrateGrowthTrials.js",
     "sync:razorpay-plans": "node scripts/syncRazorpayPlans.js",
+    "reconcile:subscriptions": "node scripts/reconcileSubscriptions.js",
+    "seed:paid-test-accounts": "node scripts/seedPaidTestAccounts.js",
+    "seed:test-accounts": "node scripts/seedPaidTestAccounts.js",
     "seed:superadmin": "node scripts/seedSuperAdmin.js",
     "test:email": "node scripts/testEmail.js",
     "test": "echo \"Error: no test specified\" && exit 1"

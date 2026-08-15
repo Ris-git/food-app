@@ -7,6 +7,9 @@ const { permissions } = require("../config/roles");
 const Restaurant = require("../models/Restaurant");
 const Subscription = require("../models/Subscription");
 const MenuItem = require("../models/MenuItem");
+const Order = require("../models/Order");
+const { reconcileSubscription } = require("../services/subscriptionLifecycleService");
+const { checkEntitlement, FEATURES } = require("../services/entitlementService");
 
 // Public Routes
 router.get("/", restaurantController.getAllRestaurants);
@@ -49,10 +52,10 @@ router.get("/my-dashboard", jwtAuthMiddleware, async (req, res) => {
     }
 
     // Step 2: Fetch subscription + menu items in parallel (Promise.all)
-    const [subscription, menuItems] = await Promise.all([
-      Subscription.findOne({ restaurant: restaurant._id }).populate("plan"),
-      MenuItem.find({ restaurant: restaurant._id }).limit(10).lean(),
-    ]);
+    let subscription = await Subscription.findOne({ restaurant: restaurant._id });
+    await reconcileSubscription(subscription);
+    const menuItems = await MenuItem.find({ restaurant: restaurant._id }).sort({ createdAt: -1 }).lean();
+    subscription = await Subscription.findOne({ restaurant: restaurant._id }).populate("plan");
 
     // Step 3: Compute trial days remaining
     let trialDaysRemaining = null;
@@ -75,6 +78,77 @@ router.get("/my-dashboard", jwtAuthMiddleware, async (req, res) => {
       success: false,
       message: "Failed to load dashboard data.",
     });
+  }
+});
+
+router.get("/my-analytics", jwtAuthMiddleware, async (req, res) => {
+  try {
+    const restaurant = await Restaurant.findOne({ user: req.user.id });
+    if (!restaurant) return res.status(404).json({ success: false, message: "Restaurant not found." });
+
+    const entitlement = await checkEntitlement(restaurant._id, FEATURES.VIEW_ANALYTICS);
+    if (!entitlement.allowed) return res.status(403).json({ success: false, message: entitlement.reason });
+
+    const to = req.query.to ? new Date(req.query.to) : new Date();
+    const from = req.query.from ? new Date(req.query.from) : new Date(to.getTime() - 30 * 86400000);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from > to) {
+      return res.status(400).json({ success: false, message: "Choose a valid date range." });
+    }
+    to.setHours(23, 59, 59, 999);
+
+    const match = { restaurant: restaurant._id, createdAt: { $gte: from, $lte: to } };
+    const [summary, popularItems] = await Promise.all([
+      Order.aggregate([
+        { $match: match },
+        { $group: {
+          _id: null,
+          orderCount: { $sum: 1 },
+          deliveredOrders: { $sum: { $cond: [{ $eq: ["$status", "Delivered"] }, 1, 0] } },
+          revenue: { $sum: { $cond: [{ $eq: ["$status", "Delivered"] }, "$totalPrice", 0] } },
+        } },
+      ]),
+      Order.aggregate([
+        { $match: { ...match, status: "Delivered" } },
+        { $unwind: "$items" },
+        { $group: { _id: "$items.menuItem", quantity: { $sum: "$items.quantity" }, revenue: { $sum: { $multiply: ["$items.quantity", "$items.priceAtPurchase"] } } } },
+        { $sort: { quantity: -1 } },
+        { $limit: 5 },
+        { $lookup: { from: "menuitems", localField: "_id", foreignField: "_id", as: "menuItem" } },
+        { $project: { _id: 0, menuItemId: "$_id", title: { $ifNull: [{ $arrayElemAt: ["$menuItem.title", 0] }, "Deleted item"] }, quantity: 1, revenue: 1 } },
+      ]),
+    ]);
+
+    return res.json({
+      success: true,
+      analytics: {
+        orderCount: summary[0]?.orderCount || 0,
+        deliveredOrders: summary[0]?.deliveredOrders || 0,
+        revenue: summary[0]?.revenue || 0,
+        popularItems,
+        from,
+        to,
+      },
+    });
+  } catch (err) {
+    console.error("[GET /restaurant/my-analytics] Error:", err.message);
+    return res.status(500).json({ success: false, message: "Failed to load analytics." });
+  }
+});
+
+router.patch("/my-settings", jwtAuthMiddleware, async (req, res) => {
+  try {
+    const restaurant = await Restaurant.findOne({ user: req.user.id });
+    if (!restaurant) return res.status(404).json({ success: false, message: "Restaurant not found." });
+
+    const allowed = ["name", "franchiseName", "phone", "address", "formattedAddress", "cuisine", "operatingHours", "operationalStatus"];
+    for (const field of allowed) {
+      if (req.body[field] !== undefined) restaurant[field] = req.body[field];
+    }
+    await restaurant.save();
+    return res.json({ success: true, message: "Restaurant settings saved.", restaurant });
+  } catch (err) {
+    console.error("[PATCH /restaurant/my-settings] Error:", err.message);
+    return res.status(400).json({ success: false, message: err.message || "Failed to save settings." });
   }
 });
 

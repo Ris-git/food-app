@@ -120,8 +120,8 @@ async function checkEntitlement(restaurantId, feature, context = {}) {
   const { status, plan } = subscription;
   let effectivePlan = plan;
 
-  // A scheduled job will persist this transition in Milestone 10. Until then,
-  // enforce Free limits immediately so an expired trial cannot retain access.
+  // Reconciliation persists this transition on reads and from the scheduler.
+  // Keep this defensive fallback so access remains correct if that job is late.
   const trialExpired =
     status === 'trial' &&
     subscription.trialEndsAt &&

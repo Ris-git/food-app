@@ -7,6 +7,7 @@ const Subscription = require('../models/Subscription');
 const { jwtAuthMiddleware } = require('../middlewares/authMiddleware');
 const { getRazorpayClient } = require('../services/payments/razorpayClient');
 const { verifyCheckoutSignature } = require('../services/payments/razorpaySignatures');
+const { reconcileSubscription } = require('../services/subscriptionLifecycleService');
 
 const PAID_PLAN_TOTAL_COUNTS = {
   monthly: 120,
@@ -53,10 +54,13 @@ router.get('/my-subscription', jwtAuthMiddleware, async (req, res) => {
 
     // 2. Find the subscription linked to that restaurant
     //    .populate('plan') replaces the plan ObjectId with the full Plan document
-    const subscription = await Subscription.findOne({ restaurant: restaurant._id })
+    let subscription = await Subscription.findOne({ restaurant: restaurant._id });
+    await reconcileSubscription(subscription);
+    subscription = await Subscription.findOne({ restaurant: restaurant._id })
       .select('-providerPlanId -providerSubId -pendingProviderSubId')
       .populate('plan', '-razorpayPlanId')
-      .populate('pendingPlan', '-razorpayPlanId');
+      .populate('pendingPlan', '-razorpayPlanId')
+      .populate('scheduledPlan', '-razorpayPlanId');
 
     if (!subscription) {
       return res.status(404).json({
@@ -77,6 +81,7 @@ router.get('/my-subscription', jwtAuthMiddleware, async (req, res) => {
       subscription,
       plan: subscription.plan, // already populated
       pendingPlan: subscription.pendingPlan || null,
+      scheduledPlan: subscription.scheduledPlan || null,
       trialDaysRemaining,
     });
   } catch (err) {
@@ -130,6 +135,21 @@ router.post('/subscription', jwtAuthMiddleware, async (req, res) => {
     }
     if (subscription.status === 'active' && subscription.plan.equals(plan._id)) {
       return res.status(409).json({ success: false, message: 'This is already your active plan.' });
+    }
+    if (subscription.status === 'active' && subscription.provider === 'razorpay') {
+      return res.status(409).json({
+        success: false,
+        message: 'Use plan switching for an active paid subscription; a second Checkout is not required.',
+      });
+    }
+    if (
+      subscription.pendingProviderSubId &&
+      !subscription.pendingPlan?.equals(plan._id)
+    ) {
+      return res.status(409).json({
+        success: false,
+        message: 'Cancel your existing upcoming subscription before choosing another plan.',
+      });
     }
 
     let providerSubscriptionId = null;
@@ -193,6 +213,100 @@ router.post('/subscription', jwtAuthMiddleware, async (req, res) => {
   } catch (err) {
     console.error('[POST /billing/subscription] Error:', err.message);
     return res.status(500).json({ success: false, message: 'Unable to prepare checkout. Please try again.' });
+  }
+});
+
+/**
+ * POST /billing/subscription/change-plan
+ *
+ * Schedules an active Razorpay subscription to move to another paid plan at
+ * the next billing boundary. Access and price remain unchanged until then.
+ */
+router.post('/subscription/change-plan', jwtAuthMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'restaurant') {
+      return res.status(403).json({ success: false, message: 'Restaurant access required.' });
+    }
+    if (!mongoose.isValidObjectId(req.body.planId)) {
+      return res.status(400).json({ success: false, message: 'A valid target plan is required.' });
+    }
+
+    const [restaurant, targetPlan] = await Promise.all([
+      Restaurant.findOne({ user: req.user.id }),
+      Plan.findById(req.body.planId),
+    ]);
+    if (!restaurant) {
+      return res.status(404).json({ success: false, message: 'No restaurant found for this account.' });
+    }
+    if (!targetPlan || !targetPlan.isActive || targetPlan.price <= 0 || !targetPlan.razorpayPlanId) {
+      return res.status(400).json({ success: false, message: 'Choose an available paid plan.' });
+    }
+
+    const subscription = await Subscription.findOne({ restaurant: restaurant._id });
+    if (!subscription) {
+      return res.status(404).json({ success: false, message: 'No subscription found. Contact support.' });
+    }
+    if (subscription.status !== 'active' || subscription.provider !== 'razorpay' || !subscription.providerSubId) {
+      return res.status(409).json({ success: false, message: 'Only an active paid subscription can switch plans.' });
+    }
+    if (subscription.plan.equals(targetPlan._id)) {
+      return res.status(409).json({ success: false, message: 'This is already your active plan.' });
+    }
+    if (subscription.cancelAtPeriodEnd) {
+      return res.status(409).json({ success: false, message: 'Remove the scheduled cancellation before changing plans.' });
+    }
+    if (subscription.scheduledPlan) {
+      return res.status(409).json({ success: false, message: 'A plan change is already scheduled. Cancel it first.' });
+    }
+
+    const providerSubscription = await getRazorpayClient().subscriptions.update(
+      subscription.providerSubId,
+      {
+        plan_id: targetPlan.razorpayPlanId,
+        quantity: 1,
+        schedule_change_at: 'cycle_end',
+        customer_notify: true,
+      }
+    );
+
+    subscription.scheduledPlan = targetPlan._id;
+    subscription.scheduledPlanChangeAt = providerSubscription.change_scheduled_at
+      ? new Date(providerSubscription.change_scheduled_at * 1000)
+      : subscription.currentPeriodEnd;
+    await subscription.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `${targetPlan.displayName} is scheduled for your next billing cycle.`,
+      changeAt: subscription.scheduledPlanChangeAt,
+    });
+  } catch (err) {
+    console.error('[POST /billing/subscription/change-plan] Error:', err.message);
+    return res.status(502).json({ success: false, message: 'Razorpay could not schedule the plan change.' });
+  }
+});
+
+router.post('/subscription/change-plan/cancel', jwtAuthMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'restaurant') {
+      return res.status(403).json({ success: false, message: 'Restaurant access required.' });
+    }
+    const restaurant = await Restaurant.findOne({ user: req.user.id });
+    const subscription = restaurant
+      ? await Subscription.findOne({ restaurant: restaurant._id })
+      : null;
+    if (!subscription?.scheduledPlan || !subscription.providerSubId) {
+      return res.status(409).json({ success: false, message: 'There is no scheduled plan change to cancel.' });
+    }
+
+    await getRazorpayClient().subscriptions.cancelScheduledChanges(subscription.providerSubId);
+    subscription.scheduledPlan = null;
+    subscription.scheduledPlanChangeAt = null;
+    await subscription.save();
+    return res.status(200).json({ success: true, message: 'Scheduled plan change cancelled.' });
+  } catch (err) {
+    console.error('[POST /billing/subscription/change-plan/cancel] Error:', err.message);
+    return res.status(502).json({ success: false, message: 'Razorpay could not cancel the scheduled change.' });
   }
 });
 
@@ -297,6 +411,13 @@ router.post('/subscription/cancel', jwtAuthMiddleware, async (req, res) => {
         cancellationType: 'period_end',
         message: 'Your subscription is already scheduled to end after the current billing period.',
         accessEndsAt: subscription.currentPeriodEnd,
+      });
+    }
+
+    if (subscription.scheduledPlan) {
+      return res.status(409).json({
+        success: false,
+        message: 'Cancel the scheduled plan change before cancelling the subscription.',
       });
     }
 

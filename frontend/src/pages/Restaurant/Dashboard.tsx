@@ -1,11 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { restaurantDashboardService, type DashboardResponse } from '../../features/restaurant/services/restaurantDashboardService';
 import Button from '../../components/Button';
+import { DashboardTools } from '../../features/restaurant/components/DashboardTools';
+import type { Restaurant } from '../../types';
 
 
 interface DashboardProps {
   onNavigateBilling?: () => void;
 }
+
+const STORE_STATUS = {
+  OPEN: { label: 'STORE OPEN', background: '#ECFDF5', color: '#047857', border: '#A7F3D0', dot: '#10B981' },
+  CLOSED: { label: 'STORE CLOSED', background: '#FEF2F2', color: '#B91C1C', border: '#FECACA', dot: '#EF4444' },
+  BUSY: { label: 'STORE BUSY', background: '#FFF7ED', color: '#C2410C', border: '#FED7AA', dot: '#F97316' },
+  TEMPORARILY_UNAVAILABLE: { label: 'TEMPORARILY UNAVAILABLE', background: '#F8FAFC', color: '#475569', border: '#CBD5E1', dot: '#64748B' },
+} as const;
 
 export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBilling }) => {
   const [data, setData] = useState<DashboardResponse | null>(null);
@@ -16,9 +25,9 @@ export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBillin
     fetchDashboard();
   }, []);
 
-  const fetchDashboard = async () => {
+  const fetchDashboard = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError(null);
       const res = await restaurantDashboardService.getDashboardData();
       if (res.success) {
@@ -31,6 +40,10 @@ export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBillin
     } finally {
       setLoading(false);
     }
+  };
+
+  const applyRestaurantUpdate = (restaurant: Restaurant) => {
+    setData((current) => current ? { ...current, restaurant } : current);
   };
 
   if (loading) {
@@ -47,12 +60,13 @@ export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBillin
       <div style={{ maxWidth: '800px', margin: '40px auto', padding: '24px', backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '16px', textAlign: 'center' }}>
         <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#991B1B', marginBottom: '8px' }}>Dashboard Unavailable</h3>
         <p style={{ fontSize: '14px', color: '#7F1D1D', marginBottom: '16px' }}>{error || 'No restaurant data found.'}</p>
-        <Button onClick={fetchDashboard} variant="secondary">Try Again</Button>
+        <Button onClick={() => void fetchDashboard()} variant="secondary">Try Again</Button>
       </div>
     );
   }
 
   const { restaurant, subscription, plan, trialDaysRemaining, menuItems } = data;
+  const storeStatus = STORE_STATUS[restaurant.operationalStatus] || STORE_STATUS.CLOSED;
 
   const isTrial = subscription?.status === 'trial';
   const isActive = subscription?.status === 'active';
@@ -167,11 +181,11 @@ export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBillin
               gap: '8px',
               padding: '8px 16px',
               borderRadius: '9999px',
-              backgroundColor: restaurant.operationalStatus === 'OPEN' ? '#ECFDF5' : '#FEF2F2',
-              color: restaurant.operationalStatus === 'OPEN' ? '#047857' : '#B91C1C',
+              backgroundColor: storeStatus.background,
+              color: storeStatus.color,
               fontWeight: 700,
               fontSize: '13px',
-              border: restaurant.operationalStatus === 'OPEN' ? '1px solid #A7F3D0' : '1px solid #FECACA',
+              border: `1px solid ${storeStatus.border}`,
             }}
           >
             <span
@@ -179,10 +193,10 @@ export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBillin
                 width: '8px',
                 height: '8px',
                 borderRadius: '50%',
-                backgroundColor: restaurant.operationalStatus === 'OPEN' ? '#10B981' : '#EF4444',
+                backgroundColor: storeStatus.dot,
               }}
             />
-            {restaurant.operationalStatus === 'OPEN' ? 'STORE OPEN' : 'STORE CLOSED'}
+            {storeStatus.label}
           </div>
         </div>
       </div>
@@ -307,7 +321,7 @@ export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBillin
             </span>
           </div>
           <span style={{ fontSize: '12px', color: plan?.limits?.staffAccounts ? '#10B981' : '#64748B', fontWeight: 600 }}>
-            {plan?.limits?.staffAccounts ? `${plan.limits.staffAccounts} Manager/Kitchen accounts` : 'Upgrade to Growth for staff accounts'}
+            {plan?.limits?.staffAccounts === -1 ? 'Unlimited staff accounts' : plan?.limits?.staffAccounts ? `${plan.limits.staffAccounts} Manager/Kitchen accounts` : 'Upgrade to Growth for staff accounts'}
           </span>
         </div>
 
@@ -400,6 +414,7 @@ export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBillin
           </div>
         )}
       </div>
+      <DashboardTools data={data} onRefresh={() => fetchDashboard(true)} onRestaurantUpdated={applyRestaurantUpdate} />
     </div>
   );
 };

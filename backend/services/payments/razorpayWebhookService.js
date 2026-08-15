@@ -5,6 +5,7 @@ const SUPPORTED_EVENTS = new Set([
   'subscription.authenticated',
   'subscription.activated',
   'subscription.charged',
+  'subscription.updated',
   'subscription.pending',
   'subscription.halted',
   'subscription.cancelled',
@@ -24,10 +25,13 @@ async function getMatchingPlan(subscription, entity, usesPendingSubscription) {
     return pendingPlan;
   }
 
-  if (subscription.providerPlanId !== entity.plan_id) {
-    throw new Error('Webhook plan does not match the active Foody plan.');
+  if (subscription.providerPlanId === entity.plan_id) return null;
+
+  if (subscription.scheduledPlan) {
+    const scheduledPlan = await Plan.findById(subscription.scheduledPlan);
+    if (scheduledPlan?.razorpayPlanId === entity.plan_id) return scheduledPlan;
   }
-  return null;
+  throw new Error('Webhook plan does not match the active or scheduled Foody plan.');
 }
 
 async function processSubscriptionWebhook(event) {
@@ -53,7 +57,7 @@ async function processSubscriptionWebhook(event) {
   }
 
   const usesPendingSubscription = subscription.pendingProviderSubId === entity.id;
-  const pendingPlan = await getMatchingPlan(subscription, entity, usesPendingSubscription);
+  const matchingPlan = await getMatchingPlan(subscription, entity, usesPendingSubscription);
   const providerState = entity.status || event.event.replace('subscription.', '');
 
   // A late charge can contain useful period dates, but it must not resurrect a
@@ -81,9 +85,22 @@ async function processSubscriptionWebhook(event) {
     return { outcome: 'processed' };
   }
 
+  if (event.event === 'subscription.updated') {
+    if (!usesPendingSubscription && matchingPlan) {
+      subscription.plan = matchingPlan._id;
+      subscription.providerPlanId = entity.plan_id;
+      subscription.scheduledPlan = null;
+      subscription.scheduledPlanChangeAt = null;
+    }
+    subscription.providerStatus = providerState;
+    subscription.lastProviderEventAt = providerEventAt;
+    await subscription.save();
+    return { outcome: 'processed' };
+  }
+
   if (event.event === 'subscription.activated' || event.event === 'subscription.charged') {
     if (usesPendingSubscription) {
-      subscription.plan = pendingPlan._id;
+      subscription.plan = matchingPlan._id;
       subscription.provider = 'razorpay';
       subscription.providerPlanId = entity.plan_id;
       subscription.providerSubId = entity.id;
@@ -95,6 +112,11 @@ async function processSubscriptionWebhook(event) {
       subscription.cancelAtPeriodEnd = false;
       subscription.cancellationRequestedAt = null;
       subscription.cancelledAt = null;
+    } else if (matchingPlan) {
+      subscription.plan = matchingPlan._id;
+      subscription.providerPlanId = entity.plan_id;
+      subscription.scheduledPlan = null;
+      subscription.scheduledPlanChangeAt = null;
     }
 
     subscription.status = 'active';
@@ -127,6 +149,8 @@ async function processSubscriptionWebhook(event) {
       subscription.status = 'cancelled';
       subscription.cancelAtPeriodEnd = false;
       subscription.cancelledAt = providerEventAt;
+      subscription.scheduledPlan = null;
+      subscription.scheduledPlanChangeAt = null;
     }
   }
 

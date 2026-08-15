@@ -90,6 +90,19 @@ const subscriptionSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Paid plan changes are scheduled at the next Razorpay billing boundary.
+    // The current plan remains the entitlement source until the provider
+    // confirms that the scheduled change has taken effect.
+    scheduledPlan: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Plan',
+      default: null,
+    },
+    scheduledPlanChangeAt: {
+      type: Date,
+      default: null,
+    },
+
     // Active billing period — set by Razorpay webhook on payment success
     currentPeriodStart: {
       type: Date,
