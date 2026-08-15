@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css';
 import Login from './pages/Auth/Login';
 import Signup from './pages/Auth/Signup';
 import VerifyEmail from './pages/Auth/VerifyEmail';
 import PartnerApplication from './pages/Partner/Application';
 import AdminApplications from './pages/Admin/Applications';
+import RestaurantDashboard from './pages/Restaurant/Dashboard';
 import { useAuth } from './features/auth/context/AuthContext';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'login' | 'signup' | 'verify' | 'partner' | 'admin'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'login' | 'signup' | 'verify' | 'partner' | 'admin' | 'dashboard'>('home');
   const [location, setLocation] = useState('');
   const [showLocationToast, setShowLocationToast] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -16,9 +17,20 @@ export default function App() {
 
   const { user, logout } = useAuth();
 
+  // Auto-route restaurant partners to their dashboard on login
+  useEffect(() => {
+    if (user?.role === 'restaurant' && (currentView === 'home' || currentView === 'login' || currentView === 'partner')) {
+      setCurrentView('dashboard');
+    }
+  }, [user]);
+
   const handlePartnerWithUs = () => {
     if (user) {
-      setCurrentView('partner');
+      if (user.role === 'restaurant') {
+        setCurrentView('dashboard');
+      } else {
+        setCurrentView('partner');
+      }
     } else {
       setCurrentView('signup');
     }
@@ -55,7 +67,7 @@ export default function App() {
     <div className="foody-landing">
       {/* Top Header Navigation */}
       <header className="header">
-        <div className="logo-container" onClick={() => setCurrentView('home')}>
+        <div className="logo-container" onClick={() => setCurrentView(user?.role === 'restaurant' ? 'dashboard' : 'home')}>
           <div className="logo-icon">F</div>
           <span className="logo-text">Foody</span>
         </div>
@@ -64,14 +76,25 @@ export default function App() {
           {user ? (
             <>
               <span style={{ fontSize: '14px', fontWeight: 600 }}>Hi, {user.name} ({user.role})</span>
+              {user.role === 'restaurant' && (
+                <button
+                  className="btn-mint-pill"
+                  onClick={() => setCurrentView('dashboard')}
+                  style={{ backgroundColor: '#10B981', color: '#022C22', fontWeight: 700 }}
+                >
+                  🏪 My Dashboard
+                </button>
+              )}
               {(user.role === 'admin' || user.role === 'superAdmin') && (
                 <button className="btn-mint-pill" onClick={() => setCurrentView('admin')}>
                   Admin Console
                 </button>
               )}
-              <button className="btn-ghost" onClick={() => setCurrentView('partner')}>
-                Partner Application
-              </button>
+              {user.role !== 'restaurant' && (
+                <button className="btn-ghost" onClick={() => setCurrentView('partner')}>
+                  Partner Application
+                </button>
+              )}
               <button className="btn-outline-pill" onClick={handleLogout}>
                 Log out
               </button>
@@ -135,6 +158,12 @@ export default function App() {
           <p style={{ textAlign: 'center', marginTop: '12px' }}>
             <button className="btn-ghost" onClick={() => setCurrentView('home')}>← Back to Home</button>
           </p>
+        </div>
+      )}
+
+      {currentView === 'dashboard' && (
+        <div>
+          <RestaurantDashboard onNavigateBilling={() => alert('Billing Plans Page will be built in Milestone 5!')} />
         </div>
       )}
 

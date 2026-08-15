@@ -77,12 +77,14 @@ export type RestaurantApplication = {
 
 export type Restaurant = {
   id: string;
+  _id?: string;
   userId: string;
   name: string;
   franchiseName?: string;
   logoUrl?: string;
   phone: string;
   cuisine: string[];
+  address?: string;
   formattedAddress: string;
   location: LocationPoint;
   operatingHours?: OperatingHours;
@@ -91,3 +93,48 @@ export type Restaurant = {
   createdAt?: string;
   updatedAt?: string;
 };
+
+// ─── Billing & Subscription Types ─────────────────────────────────────────────
+
+export type PlanLimits = {
+  staffAccounts: number;  // -1 = unlimited
+  menuItems: number;      // -1 = unlimited
+  analyticsAccess: boolean;
+};
+
+export type Plan = {
+  _id: string;
+  name: 'free' | 'growth' | 'pro';
+  displayName: string;
+  price: number;          // in paise (divide by 100 for rupees display)
+  currency: string;
+  billingInterval: 'monthly' | 'yearly' | 'none';
+  trialDays: number;
+  razorpayPlanId: string | null;
+  isActive: boolean;
+  limits: PlanLimits;
+};
+
+export type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'cancelled' | 'free';
+
+export type Subscription = {
+  _id: string;
+  restaurant: string;
+  plan: Plan;             // populated from DB
+  status: SubscriptionStatus;
+  provider: 'razorpay' | 'none';
+  trialEndsAt: string | null;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+  cancelledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RestaurantDashboardData = {
+  restaurant: Restaurant;
+  subscription: Subscription;
+  plan: Plan;
+  trialDaysRemaining: number | null;
+};
+
