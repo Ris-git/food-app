@@ -4,6 +4,8 @@ const RestaurantApplication = require('../models/RestaurantApplication');
 const Restaurant = require('../models/Restaurant');
 const MenuItem = require('../models/MenuItem');
 const User = require('../models/User');
+const Plan = require('../models/Plan');
+const Subscription = require('../models/Subscription');
 const { jwtAuthMiddleware } = require('../middlewares/authMiddleware');
 
 // Helper role check for Admin / SuperAdmin
@@ -99,13 +101,32 @@ router.patch('/applications/:id/approve', jwtAuthMiddleware, verifyAdminAccess, 
     // 4. Upgrade User.role to 'restaurant'
     await User.findByIdAndUpdate(application.user, { role: 'restaurant' });
 
+    // 5. Auto-create a 30-day trial Subscription for the new restaurant
+    const freePlan = await Plan.findOne({ name: 'free' });
+    if (freePlan) {
+      const TRIAL_DAYS = freePlan.trialDays || 30;
+      const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+
+      await Subscription.create({
+        restaurant: newRestaurant._id,
+        plan: freePlan._id,
+        status: 'trial',
+        provider: 'none',
+        trialEndsAt,
+      });
+
+      console.log(`🎁 Trial subscription created for '${newRestaurant.name}' — expires ${trialEndsAt.toDateString()}`);
+    } else {
+      console.warn('⚠️  Free plan not found in DB. Run: node scripts/seedPlans.js');
+    }
+
     console.log(
-      `✅ Application ${applicationId} approved. Created restaurant '${newRestaurant.name}', seeded ${seededMenuItemsCount} menu items, and upgraded user to 'restaurant' role.`
+      `✅ Application ${applicationId} approved. Created restaurant '${newRestaurant.name}', seeded ${seededMenuItemsCount} menu items, upgraded user to 'restaurant' role, and started 30-day trial.`
     );
 
     return res.status(200).json({
       success: true,
-      message: 'Application approved successfully! Restaurant created, menu items seeded, and user role upgraded.',
+      message: 'Application approved! Restaurant created, menu items seeded, user upgraded, and 30-day trial started.',
       application,
       restaurant: newRestaurant,
       seededMenuItemsCount,
