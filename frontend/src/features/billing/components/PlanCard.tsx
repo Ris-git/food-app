@@ -5,6 +5,7 @@ type PlanCardProps = {
   plan: Plan;
   isCurrent: boolean;
   isTrialEntitlement: boolean;
+  isPendingAuthorized: boolean;
   isLoading: boolean;
   onSelect: (plan: Plan) => void;
 };
@@ -33,8 +34,8 @@ const formatPrice = (plan: Plan) => {
   }).format(plan.price / 100);
 };
 
-export const PlanCard: React.FC<PlanCardProps> = ({ plan, isCurrent, isTrialEntitlement, isLoading, onSelect }) => {
-  const canCheckout = !isCurrent && plan.price > 0 && plan.billingInterval !== 'none';
+export const PlanCard: React.FC<PlanCardProps> = ({ plan, isCurrent, isTrialEntitlement, isPendingAuthorized, isLoading, onSelect }) => {
+  const canCheckout = !isCurrent && !isPendingAuthorized && plan.price > 0 && plan.billingInterval !== 'none';
   return (
     <article
       style={{
@@ -54,6 +55,11 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, isCurrent, isTrialEnti
         {isCurrent && (
           <span style={{ color: '#047857', backgroundColor: '#ECFDF5', padding: '4px 9px', borderRadius: '6px', fontSize: '11px', fontWeight: 700 }}>
             Current plan
+          </span>
+        )}
+        {isPendingAuthorized && (
+          <span style={{ color: '#1D4ED8', backgroundColor: '#EFF6FF', padding: '4px 9px', borderRadius: '6px', fontSize: '11px', fontWeight: 700 }}>
+            Upcoming
           </span>
         )}
       </div>
@@ -98,6 +104,8 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, isCurrent, isTrialEnti
       >
         {isCurrent
           ? 'Current plan'
+          : isPendingAuthorized
+            ? 'Subscription authorized'
           : plan.price === 0
             ? 'Included automatically'
             : isLoading

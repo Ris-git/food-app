@@ -92,6 +92,9 @@ async function processSubscriptionWebhook(event) {
       subscription.pendingProviderStatus = null;
       subscription.pendingCreatedAt = null;
       subscription.trialEndsAt = null;
+      subscription.cancelAtPeriodEnd = false;
+      subscription.cancellationRequestedAt = null;
+      subscription.cancelledAt = null;
     }
 
     subscription.status = 'active';
@@ -106,7 +109,15 @@ async function processSubscriptionWebhook(event) {
   }
 
   if (usesPendingSubscription) {
-    subscription.pendingProviderStatus = providerState;
+    if (event.event === 'subscription.cancelled' || event.event === 'subscription.completed') {
+      subscription.pendingPlan = null;
+      subscription.pendingProviderSubId = null;
+      subscription.pendingProviderStatus = null;
+      subscription.pendingCreatedAt = null;
+      subscription.authenticatedAt = null;
+    } else {
+      subscription.pendingProviderStatus = providerState;
+    }
   } else {
     subscription.providerStatus = providerState;
     if (event.event === 'subscription.pending' || event.event === 'subscription.halted') {
@@ -114,6 +125,8 @@ async function processSubscriptionWebhook(event) {
     }
     if (event.event === 'subscription.cancelled' || event.event === 'subscription.completed') {
       subscription.status = 'cancelled';
+      subscription.cancelAtPeriodEnd = false;
+      subscription.cancelledAt = providerEventAt;
     }
   }
 

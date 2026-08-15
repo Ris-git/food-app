@@ -74,6 +74,8 @@ export const Billing: React.FC<BillingProps> = ({ onBackToDashboard }) => {
   const [error, setError] = useState<string | null>(null);
   const [checkoutPlanId, setCheckoutPlanId] = useState<string | null>(null);
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
+  const [confirmingCancellation, setConfirmingCancellation] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const loadBilling = async () => {
     try {
@@ -153,6 +155,21 @@ export const Billing: React.FC<BillingProps> = ({ onBackToDashboard }) => {
     }
   };
 
+  const cancelSubscription = async () => {
+    try {
+      setCancelling(true);
+      setCheckoutMessage(null);
+      const response = await billingService.cancelSubscription();
+      setCheckoutMessage(response.message);
+      setConfirmingCancellation(false);
+      await loadBilling();
+    } catch (err: unknown) {
+      setCheckoutMessage(err instanceof Error ? err.message : 'Unable to cancel subscription.');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   if (loading) {
     return (
       <main style={{ maxWidth: '1100px', margin: '40px auto', padding: '0 24px', color: '#0F172A' }}>
@@ -174,7 +191,14 @@ export const Billing: React.FC<BillingProps> = ({ onBackToDashboard }) => {
     );
   }
 
-  const { subscription, plan, trialDaysRemaining } = current;
+  const { subscription, plan, pendingPlan, trialDaysRemaining } = current;
+  const hasAuthorizedPendingPlan = Boolean(
+    pendingPlan && subscription.pendingProviderStatus === 'authenticated'
+  );
+  const canCancelPaidPlan =
+    subscription.provider === 'razorpay' &&
+    ['active', 'past_due'].includes(subscription.status) &&
+    !subscription.cancelAtPeriodEnd;
 
   return (
     <main style={{ maxWidth: '1100px', margin: '32px auto 64px', padding: '0 24px', color: '#0F172A' }}>
@@ -213,6 +237,55 @@ export const Billing: React.FC<BillingProps> = ({ onBackToDashboard }) => {
             </div>
           </dl>
         </div>
+
+        {subscription.cancelAtPeriodEnd && (
+          <div style={{ marginTop: '20px', paddingTop: '18px', borderTop: '1px solid #E2E8F0', color: '#475569', fontSize: '14px' }}>
+            This subscription will end on <strong>{formatDate(subscription.currentPeriodEnd)}</strong>. Your paid access remains available until then.
+          </div>
+        )}
+
+        {pendingPlan && (
+          <div style={{ marginTop: '20px', paddingTop: '18px', borderTop: '1px solid #E2E8F0' }}>
+            <div style={{ color: '#0F172A', fontSize: '14px', fontWeight: 700 }}>
+              Upcoming plan: {pendingPlan.displayName}
+            </div>
+            <p style={{ margin: '5px 0 0', color: '#64748B', fontSize: '13px' }}>
+              {hasAuthorizedPendingPlan
+                ? `Authorized and scheduled after your trial ends on ${formatDate(subscription.trialEndsAt)}.`
+                : 'Checkout has not been authorized yet.'}
+            </p>
+          </div>
+        )}
+
+        {(pendingPlan || canCancelPaidPlan) && !subscription.cancelAtPeriodEnd && (
+          <div style={{ marginTop: '18px' }}>
+            {confirmingCancellation ? (
+              <div style={{ padding: '16px', border: '1px solid #CBD5E1', borderRadius: '10px', backgroundColor: '#F8FAFC' }}>
+                <p style={{ margin: '0 0 12px', color: '#334155', fontSize: '13px' }}>
+                  {pendingPlan
+                    ? `Cancel the upcoming ${pendingPlan.displayName} subscription? Your current trial or plan will not change.`
+                    : `Cancel ${plan.displayName} at the end of the current billing period?`}
+                </p>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <Button variant="secondary" disabled={cancelling} onClick={() => setConfirmingCancellation(false)}>
+                    Keep subscription
+                  </Button>
+                  <Button disabled={cancelling} onClick={cancelSubscription}>
+                    {cancelling ? 'Cancelling...' : 'Confirm cancellation'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingCancellation(true)}
+                style={{ padding: 0, background: 'none', border: 0, color: '#B91C1C', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                {pendingPlan ? 'Cancel upcoming subscription' : 'Cancel subscription'}
+              </button>
+            )}
+          </div>
+        )}
       </section>
 
       <section>
@@ -237,6 +310,7 @@ export const Billing: React.FC<BillingProps> = ({ onBackToDashboard }) => {
                 plan={availablePlan}
                 isCurrent={availablePlan._id === plan._id && subscription.status !== 'trial'}
                 isTrialEntitlement={availablePlan._id === plan._id && subscription.status === 'trial'}
+                isPendingAuthorized={hasAuthorizedPendingPlan && availablePlan._id === pendingPlan?._id}
                 isLoading={checkoutPlanId === availablePlan._id}
                 onSelect={startCheckout}
               />

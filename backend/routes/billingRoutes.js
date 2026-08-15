@@ -55,7 +55,8 @@ router.get('/my-subscription', jwtAuthMiddleware, async (req, res) => {
     //    .populate('plan') replaces the plan ObjectId with the full Plan document
     const subscription = await Subscription.findOne({ restaurant: restaurant._id })
       .select('-providerPlanId -providerSubId -pendingProviderSubId')
-      .populate('plan', '-razorpayPlanId');
+      .populate('plan', '-razorpayPlanId')
+      .populate('pendingPlan', '-razorpayPlanId');
 
     if (!subscription) {
       return res.status(404).json({
@@ -75,6 +76,7 @@ router.get('/my-subscription', jwtAuthMiddleware, async (req, res) => {
       success: true,
       subscription,
       plan: subscription.plan, // already populated
+      pendingPlan: subscription.pendingPlan || null,
       trialDaysRemaining,
     });
   } catch (err) {
@@ -247,6 +249,75 @@ router.post('/subscription/verify', jwtAuthMiddleware, async (req, res) => {
   } catch (err) {
     console.error('[POST /billing/subscription/verify] Error:', err.message);
     return res.status(500).json({ success: false, message: 'Unable to verify Checkout.' });
+  }
+});
+
+/**
+ * POST /billing/subscription/cancel
+ *
+ * Cancels an upcoming subscription immediately, or schedules an active paid
+ * subscription to end after its current paid period. Provider identifiers are
+ * always resolved from the authenticated restaurant's own record.
+ */
+router.post('/subscription/cancel', jwtAuthMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'restaurant') {
+      return res.status(403).json({ success: false, message: 'Restaurant access required.' });
+    }
+
+    const restaurant = await Restaurant.findOne({ user: req.user.id });
+    if (!restaurant) {
+      return res.status(404).json({ success: false, message: 'No restaurant found for this account.' });
+    }
+
+    const subscription = await Subscription.findOne({ restaurant: restaurant._id });
+    if (!subscription) {
+      return res.status(404).json({ success: false, message: 'No subscription found. Contact support.' });
+    }
+
+    if (subscription.pendingProviderSubId) {
+      await getRazorpayClient().subscriptions.cancel(subscription.pendingProviderSubId, false);
+      subscription.pendingPlan = null;
+      subscription.pendingProviderSubId = null;
+      subscription.pendingProviderStatus = null;
+      subscription.pendingCreatedAt = null;
+      subscription.authenticatedAt = null;
+      await subscription.save();
+
+      return res.status(200).json({
+        success: true,
+        cancellationType: 'upcoming',
+        message: 'Upcoming subscription cancelled. Your current trial or plan is unchanged.',
+      });
+    }
+
+    if (subscription.cancelAtPeriodEnd) {
+      return res.status(200).json({
+        success: true,
+        cancellationType: 'period_end',
+        message: 'Your subscription is already scheduled to end after the current billing period.',
+        accessEndsAt: subscription.currentPeriodEnd,
+      });
+    }
+
+    if (subscription.provider !== 'razorpay' || !subscription.providerSubId) {
+      return res.status(409).json({ success: false, message: 'There is no paid subscription to cancel.' });
+    }
+
+    await getRazorpayClient().subscriptions.cancel(subscription.providerSubId, true);
+    subscription.cancelAtPeriodEnd = true;
+    subscription.cancellationRequestedAt = new Date();
+    await subscription.save();
+
+    return res.status(200).json({
+      success: true,
+      cancellationType: 'period_end',
+      message: 'Cancellation scheduled. You will retain access until the current billing period ends.',
+      accessEndsAt: subscription.currentPeriodEnd,
+    });
+  } catch (err) {
+    console.error('[POST /billing/subscription/cancel] Error:', err.message);
+    return res.status(502).json({ success: false, message: 'Razorpay could not cancel the subscription. Please try again.' });
   }
 });
 

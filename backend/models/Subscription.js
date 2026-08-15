@@ -111,6 +111,14 @@ const subscriptionSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    cancelAtPeriodEnd: {
+      type: Boolean,
+      default: false,
+    },
+    cancellationRequestedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

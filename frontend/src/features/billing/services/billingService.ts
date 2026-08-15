@@ -12,7 +12,15 @@ export type CurrentSubscriptionResponse = {
   message?: string;
   subscription: Subscription;
   plan: Plan;
+  pendingPlan: Plan | null;
   trialDaysRemaining: number | null;
+};
+
+export type CancelSubscriptionResponse = {
+  success: boolean;
+  message: string;
+  cancellationType: 'upcoming' | 'period_end';
+  accessEndsAt?: string | null;
 };
 
 export type CheckoutResponse = {
@@ -68,5 +76,11 @@ export const billingService = {
       method: 'POST',
       body: JSON.stringify(result),
     })) as unknown as VerifyCheckoutResponse;
+  },
+
+  async cancelSubscription(): Promise<CancelSubscriptionResponse> {
+    return (await apiRequest<CancelSubscriptionResponse>('/billing/subscription/cancel', {
+      method: 'POST',
+    })) as unknown as CancelSubscriptionResponse;
   },
 };

@@ -125,10 +125,15 @@ export type Subscription = {
   plan: Plan;             // populated from DB
   status: SubscriptionStatus;
   provider: 'razorpay' | 'none';
+  providerStatus: string | null;
+  pendingPlan: Plan | null;
+  pendingProviderStatus: string | null;
   trialEndsAt: string | null;
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
   cancelledAt: string | null;
+  cancelAtPeriodEnd: boolean;
+  cancellationRequestedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
