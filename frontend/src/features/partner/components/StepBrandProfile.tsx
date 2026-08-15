@@ -105,7 +105,6 @@ export const StepBrandProfile: React.FC<StepBrandProfileProps> = ({ formData, on
             </div>
           ) : (
             <div>
-              <div style={{ fontSize: '32px', marginBottom: '8px' }}>🖼️</div>
               <p style={{ fontSize: '14px', fontWeight: 600, color: '#334155', marginBottom: '4px' }}>
                 {uploading ? 'Uploading to ImageKit CDN...' : 'Click to select or drag logo image'}
               </p>
@@ -167,7 +166,7 @@ export const StepBrandProfile: React.FC<StepBrandProfileProps> = ({ formData, on
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px' }}>
         <Button type="submit" variant="primary">
-          Next: Location & Address →
+          Next: Location & Address
         </Button>
       </div>
     </form>

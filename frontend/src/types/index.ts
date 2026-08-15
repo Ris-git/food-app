@@ -100,11 +100,12 @@ export type PlanLimits = {
   staffAccounts: number;  // -1 = unlimited
   menuItems: number;      // -1 = unlimited
   analyticsAccess: boolean;
+  [key: string]: number | boolean;
 };
 
 export type Plan = {
   _id: string;
-  name: 'free' | 'growth' | 'pro';
+  name: string;
   displayName: string;
   price: number;          // in paise (divide by 100 for rupees display)
   currency: string;
@@ -112,6 +113,8 @@ export type Plan = {
   trialDays: number;
   razorpayPlanId: string | null;
   isActive: boolean;
+  isDefaultTrialPlan: boolean;
+  isDefaultFreePlan: boolean;
   limits: PlanLimits;
 };
 
@@ -137,4 +140,3 @@ export type RestaurantDashboardData = {
   plan: Plan;
   trialDaysRemaining: number | null;
 };
-

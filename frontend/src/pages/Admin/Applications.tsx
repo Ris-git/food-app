@@ -137,7 +137,7 @@ export const AdminApplications: React.FC = () => {
                         {app.logoUrl ? (
                           <img src={app.logoUrl} alt="Logo" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover' }} />
                         ) : (
-                          <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>🏬</div>
+                          <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 700, color: '#475569' }}>{app.restaurantName?.charAt(0) || 'R'}</div>
                         )}
                         <div>
                           <div style={{ fontWeight: 600 }}>{app.restaurantName}</div>
@@ -157,7 +157,7 @@ export const AdminApplications: React.FC = () => {
                           onClick={() => setSelectedApp(app)}
                           style={{ fontSize: '12px', padding: '6px 12px', backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
                         >
-                          👁️ View Details
+                          View Details
                         </button>
                         {app.status === 'pending' && (
                           <>
@@ -245,7 +245,7 @@ export const AdminApplications: React.FC = () => {
               {selectedApp.logoUrl ? (
                 <img src={selectedApp.logoUrl} alt="Logo" style={{ width: '64px', height: '64px', borderRadius: '12px', objectFit: 'cover' }} />
               ) : (
-                <div style={{ width: '64px', height: '64px', borderRadius: '12px', backgroundColor: '#CBD5E1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>🏬</div>
+                <div style={{ width: '64px', height: '64px', borderRadius: '12px', backgroundColor: '#CBD5E1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', fontWeight: 700, color: '#475569' }}>{selectedApp.restaurantName?.charAt(0) || 'R'}</div>
               )}
               <div>
                 <h4 style={{ fontSize: '18px', fontWeight: 800 }}>{selectedApp.restaurantName}</h4>
@@ -256,7 +256,7 @@ export const AdminApplications: React.FC = () => {
 
             {/* Location & Geocoding */}
             <div style={{ padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '16px', marginBottom: '16px', border: '1px solid #E2E8F0' }}>
-              <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>📍 Geocoded Location</div>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>Geocoded Location</div>
               <p style={{ fontSize: '14px', fontWeight: 600, color: '#0F172A', marginBottom: '4px' }}>{selectedApp.formattedAddress || selectedApp.address}</p>
               <span style={{ fontSize: '12px', color: '#059669', fontWeight: 600 }}>
                 GeoJSON Coordinates: <code>[{selectedApp.location?.coordinates?.[0] ?? 77.6412}, {selectedApp.location?.coordinates?.[1] ?? 12.9719}]</code>
@@ -266,7 +266,7 @@ export const AdminApplications: React.FC = () => {
             {/* Schedule & Shifts */}
             {selectedApp.operatingHours && (
               <div style={{ padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '16px', marginBottom: '16px', border: '1px solid #E2E8F0' }}>
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>⏰ Operating Schedule & Shifts</div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>Operating Schedule & Shifts</div>
                 <p style={{ fontSize: '13px', color: '#334155' }}>
                   Monday Hours: <strong>{selectedApp.operatingHours.monday?.isOpen ? `${selectedApp.operatingHours.monday?.openTime} - ${selectedApp.operatingHours.monday?.closeTime}` : 'Closed'}</strong>
                 </p>
@@ -276,7 +276,7 @@ export const AdminApplications: React.FC = () => {
             {/* Staged Menu Items Table */}
             <div style={{ marginBottom: '24px' }}>
               <div style={{ fontSize: '13px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '8px' }}>
-                📋 Staged Menu Items ({selectedApp.stagedMenuItems?.length || 0} Items)
+                Staged Menu Items ({selectedApp.stagedMenuItems?.length || 0} Items)
               </div>
               {selectedApp.stagedMenuItems && selectedApp.stagedMenuItems.length > 0 ? (
                 <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '12px' }}>
@@ -295,7 +295,7 @@ export const AdminApplications: React.FC = () => {
                           <td style={{ padding: '8px 10px', fontWeight: 600 }}>{item.name}</td>
                           <td style={{ padding: '8px 10px' }}>{item.category}</td>
                           <td style={{ padding: '8px 10px' }}>₹{item.price}</td>
-                          <td style={{ padding: '8px 10px' }}>{item.isVeg ? '🟢 Veg' : '🔴 Non-Veg'}</td>
+                          <td style={{ padding: '8px 10px' }}>{item.isVeg ? 'Veg' : 'Non-Veg'}</td>
                         </tr>
                       ))}
                     </tbody>

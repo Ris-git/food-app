@@ -44,7 +44,7 @@ export const StepReviewSubmission: React.FC<StepReviewSubmissionProps> = ({
         {/* Card 1: Brand Profile */}
         <div style={{ padding: '20px', backgroundColor: '#F8FAFC', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
           <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
-            🏷️ Brand Profile
+            Brand Profile
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             {formData.logoUrl ? (
@@ -55,7 +55,7 @@ export const StepReviewSubmission: React.FC<StepReviewSubmissionProps> = ({
               />
             ) : (
               <div style={{ width: '64px', height: '64px', borderRadius: '12px', backgroundColor: '#E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>
-                🏬
+                Restaurant
               </div>
             )}
             <div>
@@ -73,7 +73,7 @@ export const StepReviewSubmission: React.FC<StepReviewSubmissionProps> = ({
         {/* Card 2: Location */}
         <div style={{ padding: '20px', backgroundColor: '#F8FAFC', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
           <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-            📍 Location & Geocoding
+            Location & Geocoding
           </div>
           <p style={{ fontSize: '14px', fontWeight: 600, color: '#0F172A', marginBottom: '4px' }}>
             {formData.formattedAddress || formData.address || 'Address not specified'}
@@ -86,7 +86,7 @@ export const StepReviewSubmission: React.FC<StepReviewSubmissionProps> = ({
         {/* Card 3: Schedule */}
         <div style={{ padding: '20px', backgroundColor: '#F8FAFC', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
           <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-            ⏰ Operating Schedule
+            Operating Schedule
           </div>
           <p style={{ fontSize: '13px', color: '#334155', marginBottom: '8px' }}>
             Monday Hours: <strong>{formData.operatingHours.monday.isOpen ? `${formData.operatingHours.monday.openTime} - ${formData.operatingHours.monday.closeTime}` : 'Closed'}</strong>
@@ -116,7 +116,7 @@ export const StepReviewSubmission: React.FC<StepReviewSubmissionProps> = ({
         {/* Card 4: Staged Menu */}
         <div style={{ padding: '20px', backgroundColor: '#F8FAFC', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
           <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
-            📋 Menu Import Summary
+            Menu Import Summary
           </div>
           <p style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>
             {formData.stagedMenuItems.length} Menu Items Staged for DB Seeding
@@ -127,7 +127,7 @@ export const StepReviewSubmission: React.FC<StepReviewSubmissionProps> = ({
       {/* Navigation Actions */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px' }}>
         <Button type="button" variant="secondary" onClick={onBack} disabled={submitting}>
-          ← Back to Step 4
+          Back to Step 4
         </Button>
         <Button type="button" variant="primary" onClick={onSubmit} isLoading={submitting}>
           Submit Partner Application ✓

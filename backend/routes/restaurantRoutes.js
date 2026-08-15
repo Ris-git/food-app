@@ -10,7 +10,6 @@ const MenuItem = require("../models/MenuItem");
 
 // Public Routes
 router.get("/", restaurantController.getAllRestaurants);
-router.get("/:id", restaurantController.getRestaurantById);
 
 // Protected Routes (Vendor / Admin only)
 router.post(
@@ -78,5 +77,9 @@ router.get("/my-dashboard", jwtAuthMiddleware, async (req, res) => {
     });
   }
 });
+
+// Keep parameterized routes after named routes so "my-dashboard" is not
+// interpreted as a restaurant ID.
+router.get("/:id", restaurantController.getRestaurantById);
 
 module.exports = router;

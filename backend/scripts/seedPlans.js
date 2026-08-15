@@ -21,9 +21,11 @@ const PLANS = [
     price: 0,              // ₹0
     currency: 'INR',
     billingInterval: 'none',
-    trialDays: 30,         // 30-day full-feature trial for new restaurants
+    trialDays: 0,
     razorpayPlanId: null,  // No Razorpay plan for Free tier
     isActive: true,
+    isDefaultTrialPlan: false,
+    isDefaultFreePlan: true,
     limits: {
       staffAccounts: 0,
       menuItems: 20,
@@ -36,9 +38,11 @@ const PLANS = [
     price: 99900,          // ₹999 in paise
     currency: 'INR',
     billingInterval: 'monthly',
-    trialDays: 0,
+    trialDays: 30,
     razorpayPlanId: null,  // Will be filled in Milestone 6 after Razorpay setup
     isActive: true,
+    isDefaultTrialPlan: true,
+    isDefaultFreePlan: false,
     limits: {
       staffAccounts: 3,
       menuItems: -1,        // -1 = unlimited
@@ -54,6 +58,8 @@ const PLANS = [
     trialDays: 0,
     razorpayPlanId: null,  // Will be filled in Milestone 6 after Razorpay setup
     isActive: true,
+    isDefaultTrialPlan: false,
+    isDefaultFreePlan: false,
     limits: {
       staffAccounts: -1,   // -1 = unlimited
       menuItems: -1,        // -1 = unlimited

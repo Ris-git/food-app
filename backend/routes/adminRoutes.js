@@ -61,6 +61,20 @@ router.patch('/applications/:id/approve', jwtAuthMiddleware, verifyAdminAccess, 
       });
     }
 
+    // Billing policy must exist before approval starts. Otherwise the
+    // restaurant could be created without a usable subscription.
+    const trialPlan = await Plan.findOne({
+      isDefaultTrialPlan: true,
+      isActive: true,
+      trialDays: { $gt: 0 },
+    });
+    if (!trialPlan) {
+      return res.status(503).json({
+        success: false,
+        message: 'The default trial plan is not configured. Run the plan seed before approving applications.',
+      });
+    }
+
     // 1. Mark Application as Approved
     application.status = 'approved';
     application.adminRemarks = req.body.adminRemarks || 'Approved by Admin';
@@ -101,24 +115,18 @@ router.patch('/applications/:id/approve', jwtAuthMiddleware, verifyAdminAccess, 
     // 4. Upgrade User.role to 'restaurant'
     await User.findByIdAndUpdate(application.user, { role: 'restaurant' });
 
-    // 5. Auto-create a 30-day trial Subscription for the new restaurant
-    const freePlan = await Plan.findOne({ name: 'free' });
-    if (freePlan) {
-      const TRIAL_DAYS = freePlan.trialDays || 30;
-      const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+    // 5. Start the restaurant on the configured trial plan. The referenced
+    // plan is the restaurant's real entitlement source throughout the trial.
+    const trialEndsAt = new Date(Date.now() + trialPlan.trialDays * 24 * 60 * 60 * 1000);
+    await Subscription.create({
+      restaurant: newRestaurant._id,
+      plan: trialPlan._id,
+      status: 'trial',
+      provider: 'none',
+      trialEndsAt,
+    });
 
-      await Subscription.create({
-        restaurant: newRestaurant._id,
-        plan: freePlan._id,
-        status: 'trial',
-        provider: 'none',
-        trialEndsAt,
-      });
-
-      console.log(`🎁 Trial subscription created for '${newRestaurant.name}' — expires ${trialEndsAt.toDateString()}`);
-    } else {
-      console.warn('⚠️  Free plan not found in DB. Run: node scripts/seedPlans.js');
-    }
+    console.log(`Trial subscription created for '${newRestaurant.name}' — expires ${trialEndsAt.toDateString()}`);
 
     console.log(
       `✅ Application ${applicationId} approved. Created restaurant '${newRestaurant.name}', seeded ${seededMenuItemsCount} menu items, upgraded user to 'restaurant' role, and started 30-day trial.`

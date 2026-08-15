@@ -32,7 +32,9 @@ redisClient.on('error', () => {});
 // 2. Auth Limiter
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
+  // Keep production strict, but do not make local UI testing wait 15 minutes.
+  max: process.env.NODE_ENV === 'production' ? 10 : 100,
+  skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
   passOnStoreError: true, // Allow requests through if Redis store is unavailable

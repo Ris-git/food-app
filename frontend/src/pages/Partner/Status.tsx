@@ -46,19 +46,19 @@ export const Status: React.FC<StatusProps> = ({ application, onEditResubmit }) =
 
       {application.status === 'pending' && (
         <div style={{ padding: '14px', backgroundColor: '#FEF3C7', color: '#92400E', borderRadius: '12px', fontSize: '14px' }}>
-          ⏳ Your application is currently under review by the Foody Admin team. You will be notified once approved!
+          Your application is currently under review by the Foody Admin team. You will be notified once approved.
         </div>
       )}
 
       {application.status === 'approved' && (
         <div style={{ padding: '14px', backgroundColor: '#D1FAE5', color: '#065F46', borderRadius: '12px', fontSize: '14px' }}>
-          🎉 Congratulations! Your partner application has been approved. You now have restaurant partner access!
+          Congratulations! Your partner application has been approved. You now have restaurant partner access.
         </div>
       )}
 
       {application.status === 'rejected' && (
         <div style={{ padding: '14px', backgroundColor: '#FEE2E2', color: '#991B1B', borderRadius: '12px', fontSize: '14px' }}>
-          <p style={{ fontWeight: 600, marginBottom: '4px' }}>❌ Application Rejected</p>
+          <p style={{ fontWeight: 600, marginBottom: '4px' }}>Application Rejected</p>
           <p style={{ fontSize: '13px' }}>
             <strong>Reason / Remarks:</strong> {application.adminRemarks || 'No remarks provided.'}
           </p>

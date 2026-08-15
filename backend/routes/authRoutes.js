@@ -22,6 +22,7 @@ const { authLimiter } = require("../middlewares/rateLimiter");
 
 const crypto = require('crypto');
 
+const { jwtAuthMiddleware } = require("../middlewares/authMiddleware");
 const { sendVerificationEmail, sendResetPasswordEmail } = require("../services/email.service");
 
 // Signup logic to register a user
@@ -422,20 +423,52 @@ router.post('/refresh-token', authLimiter , async (req, res) => {
 
 
 router.post('/logout', async (req, res) => {
-    try {
-        const token = (req.cookies && req.cookies.refreshToken) || req.body?.refreshToken;
+  try {
+    const token = (req.cookies && req.cookies.refreshToken) || req.body?.refreshToken;
 
-        // Clear it from the database
-        await User.findOneAndUpdate({ refreshToken: token }, { $set: { refreshToken: "" } });
-
-        // Clear cookie from browser
-        res.clearCookie('refreshToken');
-        res.status(200).json({ message: 'Logged out successfully' });
-    } catch (err) {
-        res.status(500).json({ error: 'Internal Server Error' });
+    // Clear it from the database
+    if (token) {
+      await User.findOneAndUpdate({ refreshToken: token }, { $set: { refreshToken: '' } });
     }
+
+    // Clear cookie from browser
+    res.clearCookie('refreshToken');
+    return res.status(200).json({ success: true, message: 'Logged out successfully' });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
 });
 
+router.get('/me', jwtAuthMiddleware, async (req, res) => {
+  try {
+    const foundUser = await User.findById(req.user.id);
+    if (!foundUser) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
 
+    const payload = {
+      id: foundUser._id,
+      username: foundUser.username,
+      role: foundUser.role,
+    };
+    const freshAccessToken = generateAccessToken(payload);
+
+    return res.status(200).json({
+      success: true,
+      user: {
+        id: foundUser._id,
+        name: foundUser.name,
+        username: foundUser.username,
+        email: foundUser.email,
+        role: foundUser.role,
+        phone: foundUser.phone,
+      },
+      accessToken: freshAccessToken,
+    });
+  } catch (err) {
+    console.error('GET /auth/me Error: ', err);
+    return res.status(500).json({ success: false, message: 'Failed to rehydrate session' });
+  }
+});
 
 module.exports = router;

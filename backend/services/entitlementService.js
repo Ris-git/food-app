@@ -1,4 +1,5 @@
 const Subscription = require('../models/Subscription');
+const Plan = require('../models/Plan');
 
 /**
  * entitlementService.js
@@ -12,8 +13,8 @@ const Subscription = require('../models/Subscription');
  * Rules:
  *  - NEVER scatter plan checks (if plan === 'growth') across routes.
  *  - Always call checkEntitlement() for any feature that has a plan limit.
- *  - Pass the current resource count via context — this service does NOT
- *    query other collections (keeps it fast and focused).
+ *  - Pass the current resource count via context so resource collections do
+ *    not need to be queried again inside this service.
  */
 
 // ─── Supported Features ────────────────────────────────────────────────────
@@ -23,18 +24,6 @@ const FEATURES = {
   ADD_STAFF:       'add_staff',
   VIEW_ANALYTICS:  'view_analytics',
 };
-
-// ─── Status Helper ─────────────────────────────────────────────────────────
-/**
- * Determines whether a subscription status grants access to plan features.
- *
- * 'past_due' intentionally returns true — grace period policy:
- * the restaurant keeps access while Razorpay retries the payment.
- * Access only falls to Free limits after status becomes 'cancelled'.
- */
-function hasActiveAccess(status) {
-  return ['trial', 'active', 'past_due'].includes(status);
-}
 
 // ─── Feature Evaluators ────────────────────────────────────────────────────
 /**
@@ -129,12 +118,29 @@ async function checkEntitlement(restaurantId, feature, context = {}) {
   }
 
   const { status, plan } = subscription;
-  const planName = plan.displayName;
+  let effectivePlan = plan;
 
-  // 3. Cancelled subscriptions fall to Free limits
-  //    We still evaluate against the plan (which should be 'free' at this point)
-  //    but we annotate the reason with the subscription status.
-  const active = hasActiveAccess(status);
+  // A scheduled job will persist this transition in Milestone 10. Until then,
+  // enforce Free limits immediately so an expired trial cannot retain access.
+  const trialExpired =
+    status === 'trial' &&
+    subscription.trialEndsAt &&
+    new Date(subscription.trialEndsAt).getTime() <= Date.now();
+
+  if (trialExpired) {
+    const freePlan = await Plan.findOne({ isDefaultFreePlan: true, isActive: true }).lean();
+    if (!freePlan) {
+      return {
+        allowed: false,
+        reason: 'The trial has expired and the Free plan is not configured.',
+        planName: plan.displayName,
+        status,
+      };
+    }
+    effectivePlan = freePlan;
+  }
+
+  const planName = effectivePlan.displayName;
 
   // 4. Find the evaluator for the requested feature
   const evaluate = featureEvaluators[feature];
@@ -150,7 +156,11 @@ async function checkEntitlement(restaurantId, feature, context = {}) {
   }
 
   // 5. Evaluate the feature against the plan's limits
-  const result = evaluate(plan.limits, context);
+  const result = evaluate(effectivePlan.limits, context);
+
+  if (trialExpired) {
+    result.reason += ' Your trial has expired, so Free plan limits apply.';
+  }
 
   // 6. If subscription is not active, limits are already constrained
   //    because the subscription.plan will be the 'free' plan at this point.

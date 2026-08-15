@@ -24,13 +24,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     // Rehydrate user state on app initialization
-    const storedToken = localStorage.getItem('accessToken');
-    if (storedToken) {
-      setToken(storedToken);
-      // In production, we fetch user profile (/auth/me or /refresh-token) here
-    }
-    setIsLoading(false);
+    const rehydrateSession = async () => {
+      const storedToken = localStorage.getItem('accessToken');
+      if (storedToken) {
+        setToken(storedToken);
+        try {
+          const res = await authService.getMe();
+          if (res.success && res.user) {
+            setUser(res.user);
+            if (res.accessToken) {
+              setToken(res.accessToken);
+              localStorage.setItem('accessToken', res.accessToken);
+            }
+          }
+        } catch (err) {
+          console.warn('Session expired on boot:', err);
+          localStorage.removeItem('accessToken');
+          setToken(null);
+          setUser(null);
+        }
+      }
+      setIsLoading(false);
+    };
+
+    rehydrateSession();
   }, []);
+
 
   const login = async (credentials: LoginCredentials) => {
     setIsLoading(true);

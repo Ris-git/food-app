@@ -134,7 +134,7 @@ export const StepMenuImport: React.FC<StepMenuImportProps> = ({
       <div style={{ marginBottom: '24px', backgroundColor: '#F8FAFC', padding: '20px', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div>
-            <span style={{ fontSize: '14px', fontWeight: 700, color: '#1E293B', display: 'block' }}>📊 Bulk Import Menu File</span>
+            <span style={{ fontSize: '14px', fontWeight: 700, color: '#1E293B', display: 'block' }}>Bulk Import Menu File</span>
             <span style={{ fontSize: '12px', color: '#64748B' }}>Supports .xlsx, .xls, and .csv files</span>
           </div>
 
@@ -152,12 +152,11 @@ export const StepMenuImport: React.FC<StepMenuImportProps> = ({
               cursor: 'pointer',
             }}
           >
-            📥 Download Sample Template
+            Download Sample Template
           </button>
         </div>
 
         <div style={{ position: 'relative', border: '2px dashed #CBD5E1', borderRadius: '12px', padding: '20px', textAlign: 'center', backgroundColor: '#FFFFFF' }}>
-          <div style={{ fontSize: '28px', marginBottom: '6px' }}>📁</div>
           <p style={{ fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '2px' }}>
             {parsing ? 'Parsing Excel Rows...' : 'Click to select or drag Excel menu file here'}
           </p>
@@ -175,7 +174,7 @@ export const StepMenuImport: React.FC<StepMenuImportProps> = ({
       <div style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <span style={{ fontSize: '14px', fontWeight: 700, color: '#1E293B' }}>
-            📋 Parsed Menu Preview ({stagedMenuItems.length} Items)
+            Parsed Menu Preview ({stagedMenuItems.length} Items)
           </span>
 
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -256,7 +255,7 @@ export const StepMenuImport: React.FC<StepMenuImportProps> = ({
                           cursor: 'pointer',
                         }}
                       >
-                        {item.isVeg ? '🟢 Veg' : '🔴 Non-Veg'}
+                        {item.isVeg ? 'Veg' : 'Non-Veg'}
                       </button>
                     </td>
                     <td style={{ padding: '8px 12px', width: '60px' }}>
@@ -265,7 +264,7 @@ export const StepMenuImport: React.FC<StepMenuImportProps> = ({
                         onClick={() => handleDeleteRow(index)}
                         style={{ color: '#EF4444', border: 'none', background: 'none', cursor: 'pointer', fontSize: '14px' }}
                       >
-                        🗑️
+                        Remove
                       </button>
                     </td>
                   </tr>
@@ -283,10 +282,10 @@ export const StepMenuImport: React.FC<StepMenuImportProps> = ({
       {/* Navigation Actions */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px' }}>
         <Button type="button" variant="secondary" onClick={onBack}>
-          ← Back to Step 3
+          Back to Step 3
         </Button>
         <Button type="submit" variant="primary">
-          Next: Final Review →
+          Next: Final Review
         </Button>
       </div>
     </form>

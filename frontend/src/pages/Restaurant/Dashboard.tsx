@@ -36,7 +36,6 @@ export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBillin
   if (loading) {
     return (
       <div style={{ maxWidth: '1000px', margin: '40px auto', padding: '0 20px', textAlign: 'center' }}>
-        <div style={{ fontSize: '36px', marginBottom: '12px' }}>🏪</div>
         <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#1E293B' }}>Loading Restaurant Dashboard...</h3>
         <p style={{ fontSize: '14px', color: '#64748B' }}>Fetching your store and subscription details</p>
       </div>
@@ -46,7 +45,6 @@ export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBillin
   if (error || !data) {
     return (
       <div style={{ maxWidth: '800px', margin: '40px auto', padding: '24px', backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '16px', textAlign: 'center' }}>
-        <div style={{ fontSize: '32px', marginBottom: '8px' }}>⚠️</div>
         <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#991B1B', marginBottom: '8px' }}>Dashboard Unavailable</h3>
         <p style={{ fontSize: '14px', color: '#7F1D1D', marginBottom: '16px' }}>{error || 'No restaurant data found.'}</p>
         <Button onClick={fetchDashboard} variant="secondary">Try Again</Button>
@@ -133,7 +131,7 @@ export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBillin
             </div>
 
             <p style={{ fontSize: '13px', color: '#64748B', margin: '0 0 6px 0' }}>
-              📍 {restaurant.formattedAddress || restaurant.address || 'Address registered'}
+              {restaurant.formattedAddress || restaurant.address || 'Address registered'}
             </p>
 
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -217,9 +215,6 @@ export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBillin
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ fontSize: '32px' }}>
-            {isTrial ? '⏳' : isActive ? '🌟' : isPastDue ? '⚠️' : '📦'}
-          </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
               <span
@@ -254,7 +249,7 @@ export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBillin
               }}
             >
               {isTrial
-                ? 'You have full access to all Growth & Pro features during your 30-day trial.'
+                ? `You have ${plan?.displayName || 'Growth'} plan access during your trial.`
                 : isActive
                 ? `Recurring subscription is active (₹${(plan?.price || 0) / 100}/month).`
                 : isPastDue
@@ -278,7 +273,7 @@ export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBillin
             boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
           }}
         >
-          {isTrial || isFree ? '⚡ Upgrade Plan' : '💳 Manage Billing'}
+          {isTrial || isFree ? 'Upgrade Plan' : 'Manage Billing'}
         </button>
       </div>
 
@@ -286,9 +281,8 @@ export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBillin
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '32px' }}>
         {/* Menu Items Card */}
         <div style={{ backgroundColor: '#FFFFFF', padding: '20px', borderRadius: '18px', border: '1px solid #E2E8F0' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', marginBottom: '8px' }}>
             <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748B' }}>Menu Items</span>
-            <span style={{ fontSize: '18px' }}>🍕</span>
           </div>
           <div style={{ fontSize: '24px', fontWeight: 800, color: '#0F172A', marginBottom: '4px' }}>
             {menuItems?.length || 0}
@@ -297,15 +291,14 @@ export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBillin
             </span>
           </div>
           <span style={{ fontSize: '12px', color: '#10B981', fontWeight: 600 }}>
-            {plan?.limits?.menuItems === -1 ? '✨ Unlimited Items Enabled' : 'Standard Menu Allowance'}
+            {plan?.limits?.menuItems === -1 ? 'Unlimited items enabled' : 'Standard menu allowance'}
           </span>
         </div>
 
         {/* Staff Accounts Card */}
         <div style={{ backgroundColor: '#FFFFFF', padding: '20px', borderRadius: '18px', border: '1px solid #E2E8F0' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', marginBottom: '8px' }}>
             <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748B' }}>Staff Accounts</span>
-            <span style={{ fontSize: '18px' }}>👥</span>
           </div>
           <div style={{ fontSize: '24px', fontWeight: 800, color: '#0F172A', marginBottom: '4px' }}>
             0
@@ -320,15 +313,14 @@ export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBillin
 
         {/* Analytics Card */}
         <div style={{ backgroundColor: '#FFFFFF', padding: '20px', borderRadius: '18px', border: '1px solid #E2E8F0' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', marginBottom: '8px' }}>
             <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748B' }}>Analytics & Reports</span>
-            <span style={{ fontSize: '18px' }}>📊</span>
           </div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: plan?.limits?.analyticsAccess || isTrial ? '#059669' : '#94A3B8', marginBottom: '4px' }}>
-            {plan?.limits?.analyticsAccess || isTrial ? 'Active' : 'Locked'}
+          <div style={{ fontSize: '20px', fontWeight: 800, color: plan?.limits?.analyticsAccess ? '#059669' : '#94A3B8', marginBottom: '4px' }}>
+            {plan?.limits?.analyticsAccess ? 'Active' : 'Locked'}
           </div>
           <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 500 }}>
-            {plan?.limits?.analyticsAccess || isTrial ? 'Real-time sales & order analytics' : 'Available on Growth & Pro'}
+            {plan?.limits?.analyticsAccess ? 'Real-time sales & order analytics' : 'Available on a paid plan'}
           </span>
         </div>
       </div>
@@ -364,7 +356,19 @@ export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBillin
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
                     <span style={{ fontSize: '15px', fontWeight: 700, color: '#0F172A' }}>{item.title}</span>
-                    <span style={{ fontSize: '14px' }}>{item.type === 'veg' ? '🟢' : '🔴'}</span>
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        padding: '3px 7px',
+                        border: `1px solid ${item.type === 'veg' ? '#16A34A' : '#DC2626'}`,
+                        color: item.type === 'veg' ? '#15803D' : '#B91C1C',
+                        borderRadius: '4px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {item.type === 'veg' ? 'Veg' : 'Non-veg'}
+                    </span>
                   </div>
                   {item.description && (
                     <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 10px 0', lineHeight: 1.4 }}>

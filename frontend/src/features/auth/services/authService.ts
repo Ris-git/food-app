@@ -42,6 +42,13 @@ export const authService = {
     });
   },
 
+  async getMe(): Promise<{ success: boolean; user: User; accessToken?: string }> {
+    return (await apiRequest<{ success: boolean; user: User; accessToken?: string }>('/auth/me', {
+      method: 'GET',
+    })) as unknown as { success: boolean; user: User; accessToken?: string };
+  },
+
+
   async logout() {
     try {
       await apiRequest('/auth/logout', { method: 'POST' });

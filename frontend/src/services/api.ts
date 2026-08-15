@@ -38,13 +38,11 @@ export async function apiRequest<T = any>(
     }
 
     if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error('Session expired or unauthorized. Please log in again.');
-      }
       const errorMessage =
-        data.message || data.error || `Server returned status ${response.status}: ${response.statusText}`;
+        data.message || data.error || (response.status === 401 ? 'Invalid credentials or unauthorized' : `Server returned status ${response.status}: ${response.statusText}`);
       throw new Error(errorMessage);
     }
+
 
     return data;
   } catch (error: any) {

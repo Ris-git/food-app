@@ -99,7 +99,7 @@ export const StepScheduleConfig: React.FC<StepScheduleConfigProps> = ({
 
       {/* Header Bar with Batch Action */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <span style={{ fontSize: '15px', fontWeight: 700, color: '#1E293B' }}>📅 Day-Wise Schedule</span>
+        <span style={{ fontSize: '15px', fontWeight: 700, color: '#1E293B' }}>Day-Wise Schedule</span>
         <button
           type="button"
           onClick={handleCopyMondayToAll}
@@ -114,7 +114,7 @@ export const StepScheduleConfig: React.FC<StepScheduleConfigProps> = ({
             cursor: 'pointer',
           }}
         >
-          ⚡ Copy Monday Schedule to All Days
+          Copy Monday Schedule to All Days
         </button>
       </div>
 
@@ -176,7 +176,7 @@ export const StepScheduleConfig: React.FC<StepScheduleConfigProps> = ({
       {/* Meal Slots Section */}
       <div style={{ marginBottom: '32px' }}>
         <span style={{ fontSize: '15px', fontWeight: 700, color: '#1E293B', display: 'block', marginBottom: '12px' }}>
-          🍳 Shift Meal Slots (Automated Menu Availability)
+          Shift Meal Slots (Automated Menu Availability)
         </span>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
@@ -236,10 +236,10 @@ export const StepScheduleConfig: React.FC<StepScheduleConfigProps> = ({
       {/* Navigation Actions */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px' }}>
         <Button type="button" variant="secondary" onClick={onBack}>
-          ← Back to Step 2
+          Back to Step 2
         </Button>
         <Button type="submit" variant="primary">
-          Next: Bulk Menu Import →
+          Next: Bulk Menu Import
         </Button>
       </div>
     </form>

@@ -91,6 +91,18 @@ const planSchema = new mongoose.Schema(
       default: true,
     },
 
+    // Product-policy flags let workflows find plans by responsibility instead
+    // of depending on names such as "free" or "growth".
+    isDefaultTrialPlan: {
+      type: Boolean,
+      default: false,
+    },
+
+    isDefaultFreePlan: {
+      type: Boolean,
+      default: false,
+    },
+
     // Feature limits enforced by the entitlement service
     limits: {
       type: planLimitsSchema,
@@ -98,6 +110,15 @@ const planSchema = new mongoose.Schema(
     },
   },
   { timestamps: true }
+);
+
+planSchema.index(
+  { isDefaultTrialPlan: 1 },
+  { unique: true, partialFilterExpression: { isDefaultTrialPlan: true } }
+);
+planSchema.index(
+  { isDefaultFreePlan: 1 },
+  { unique: true, partialFilterExpression: { isDefaultFreePlan: true } }
 );
 
 module.exports = mongoose.model('Plan', planSchema);

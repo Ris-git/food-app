@@ -62,7 +62,7 @@ export const StepLocationMap: React.FC<StepLocationMapProps> = ({ formData, onCh
         title: 'Drag to fine-tune your restaurant location',
       });
 
-      // When user finishes dragging the pin → reverse geocode + update state
+      // When the user finishes dragging the pin, reverse geocode and update state.
       marker.addListener('dragend', async (event: any) => {
         const newLat: number = event.latLng.lat();
         const newLng: number = event.latLng.lng();
@@ -210,7 +210,7 @@ export const StepLocationMap: React.FC<StepLocationMapProps> = ({ formData, onCh
       <div style={{ marginBottom: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
           <label className="input-label" style={{ fontWeight: 600, color: '#1E293B' }}>
-            🔍 Search Address via Google Places
+            Search Address via Google Places
           </label>
           <button
             type="button"
@@ -227,7 +227,7 @@ export const StepLocationMap: React.FC<StepLocationMapProps> = ({ formData, onCh
               cursor: 'pointer',
             }}
           >
-            {detectingGps ? '📡 Locating GPS...' : '🎯 Detect My Location'}
+            {detectingGps ? 'Locating...' : 'Detect My Location'}
           </button>
         </div>
         <input
@@ -239,7 +239,7 @@ export const StepLocationMap: React.FC<StepLocationMapProps> = ({ formData, onCh
           style={{ width: '100%' }}
         />
         <span style={{ fontSize: '12px', color: '#64748B', marginTop: '4px', display: 'block' }}>
-          {isLoaded ? '✅ Google Places live search active.' : '⏳ Loading Google Places SDK...'}
+          {isLoaded ? 'Google Places search is active.' : 'Loading Google Places...'}
         </span>
       </div>
 
@@ -272,7 +272,6 @@ export const StepLocationMap: React.FC<StepLocationMapProps> = ({ formData, onCh
               gap: '8px',
             }}
           >
-            <div style={{ fontSize: '32px' }}>🗺️</div>
             <div style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>
               Loading Google Map...
             </div>
@@ -281,13 +280,13 @@ export const StepLocationMap: React.FC<StepLocationMapProps> = ({ formData, onCh
       </div>
 
       <p style={{ fontSize: '12px', color: '#94A3B8', marginBottom: '16px', marginTop: '-16px' }}>
-        💡 Drag the red pin on the map to fine-tune your exact store location. Address updates automatically!
+        Drag the red pin on the map to fine-tune your exact store location. The address updates automatically.
       </p>
 
       {/* Quick Test Presets */}
       <div style={{ marginBottom: '24px', backgroundColor: '#F8FAFC', padding: '16px', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
         <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '8px' }}>
-          ⚡ Quick Location Presets:
+          Quick Location Presets:
         </span>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {PRESET_LOCATIONS.map((preset) => (
@@ -307,7 +306,7 @@ export const StepLocationMap: React.FC<StepLocationMapProps> = ({ formData, onCh
                 boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
               }}
             >
-              📍 {preset.name}
+              {preset.name}
             </button>
           ))}
         </div>
@@ -365,7 +364,6 @@ export const StepLocationMap: React.FC<StepLocationMapProps> = ({ formData, onCh
           gap: '12px',
         }}
       >
-        <div style={{ fontSize: '24px' }}>📍</div>
         <div>
           <div style={{ fontSize: '13px', fontWeight: 700, color: '#065F46' }}>Live GeoJSON Location Active</div>
           <div style={{ fontSize: '12px', color: '#047857' }}>
@@ -377,10 +375,10 @@ export const StepLocationMap: React.FC<StepLocationMapProps> = ({ formData, onCh
       {/* Navigation Buttons */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px' }}>
         <Button type="button" variant="secondary" onClick={onBack}>
-          ← Back to Step 1
+          Back to Step 1
         </Button>
         <Button type="submit" variant="primary">
-          Next: Operating Schedule →
+          Next: Operating Schedule
         </Button>
       </div>
     </form>

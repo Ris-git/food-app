@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import type { CSSProperties } from 'react';
 import './App.css';
 import Login from './pages/Auth/Login';
 import Signup from './pages/Auth/Signup';
@@ -6,14 +7,30 @@ import VerifyEmail from './pages/Auth/VerifyEmail';
 import PartnerApplication from './pages/Partner/Application';
 import AdminApplications from './pages/Admin/Applications';
 import RestaurantDashboard from './pages/Restaurant/Dashboard';
+import Billing from './pages/Restaurant/Billing';
 import { useAuth } from './features/auth/context/AuthContext';
 
+const profileMenuItemStyle: CSSProperties = {
+  display: 'block',
+  width: '100%',
+  padding: '14px 22px',
+  border: 0,
+  backgroundColor: 'transparent',
+  color: '#1E293B',
+  textAlign: 'left',
+  fontSize: '15px',
+  fontWeight: 650,
+  cursor: 'pointer',
+};
+
 export default function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'login' | 'signup' | 'verify' | 'partner' | 'admin' | 'dashboard'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'login' | 'signup' | 'verify' | 'partner' | 'admin' | 'dashboard' | 'billing'>('home');
   const [location, setLocation] = useState('');
   const [showLocationToast, setShowLocationToast] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
 
   const { user, logout } = useAuth();
 
@@ -23,6 +40,19 @@ export default function App() {
       setCurrentView('dashboard');
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!profileOpen) return;
+
+    const handleOutsideClick = (event: PointerEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handleOutsideClick);
+    return () => document.removeEventListener('pointerdown', handleOutsideClick);
+  }, [profileOpen]);
 
   const handlePartnerWithUs = () => {
     if (user) {
@@ -59,8 +89,14 @@ export default function App() {
   ];
 
   const handleLogout = async () => {
+    setProfileOpen(false);
     await logout();
     setCurrentView('home');
+  };
+
+  const navigateFromProfile = (view: 'dashboard' | 'billing' | 'admin' | 'partner') => {
+    setProfileOpen(false);
+    setCurrentView(view);
   };
 
   return (
@@ -74,31 +110,101 @@ export default function App() {
 
         <nav className="nav-actions">
           {user ? (
-            <>
-              <span style={{ fontSize: '14px', fontWeight: 600 }}>Hi, {user.name} ({user.role})</span>
-              {user.role === 'restaurant' && (
-                <button
-                  className="btn-mint-pill"
-                  onClick={() => setCurrentView('dashboard')}
-                  style={{ backgroundColor: '#10B981', color: '#022C22', fontWeight: 700 }}
-                >
-                  🏪 My Dashboard
-                </button>
-              )}
-              {(user.role === 'admin' || user.role === 'superAdmin') && (
-                <button className="btn-mint-pill" onClick={() => setCurrentView('admin')}>
-                  Admin Console
-                </button>
-              )}
-              {user.role !== 'restaurant' && (
-                <button className="btn-ghost" onClick={() => setCurrentView('partner')}>
-                  Partner Application
-                </button>
-              )}
-              <button className="btn-outline-pill" onClick={handleLogout}>
-                Log out
+            <div ref={profileMenuRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setProfileOpen((open) => !open)}
+                aria-expanded={profileOpen}
+                aria-label="Open account menu"
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  border: '2px solid rgba(255,255,255,0.9)',
+                  backgroundColor: '#334155',
+                  color: '#FFFFFF',
+                  fontSize: '14px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                MJ
               </button>
-            </>
+
+              {profileOpen && (
+                <div
+                  role="menu"
+                  style={{
+                    position: 'absolute',
+                    top: '62px',
+                    right: 0,
+                    width: '250px',
+                    padding: '12px 0',
+                    backgroundColor: '#FFFFFF',
+                    borderTop: '4px solid #10B981',
+                    boxShadow: '0 14px 36px rgba(15,23,42,0.24)',
+                    zIndex: 200,
+                  }}
+                >
+                  <div style={{ padding: '12px 22px 16px', borderBottom: '1px solid #E2E8F0' }}>
+                    <div style={{ color: '#0F172A', fontSize: '16px', fontWeight: 750 }}>Modi Ji</div>
+                    <div style={{ color: '#64748B', fontSize: '12px', marginTop: '3px' }}>{user.username}</div>
+                  </div>
+
+                  {user.role === 'restaurant' && (
+                    <>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => navigateFromProfile('dashboard')}
+                        style={profileMenuItemStyle}
+                      >
+                        Dashboard
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => navigateFromProfile('billing')}
+                        style={profileMenuItemStyle}
+                      >
+                        Billing
+                      </button>
+                    </>
+                  )}
+
+                  {(user.role === 'admin' || user.role === 'superAdmin') && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => navigateFromProfile('admin')}
+                      style={profileMenuItemStyle}
+                    >
+                      Admin Console
+                    </button>
+                  )}
+
+                  {user.role !== 'restaurant' && user.role !== 'admin' && user.role !== 'superAdmin' && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => navigateFromProfile('partner')}
+                      style={profileMenuItemStyle}
+                    >
+                      Partner Application
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={handleLogout}
+                    style={{ ...profileMenuItemStyle, color: '#B91C1C' }}
+                  >
+                    Log out
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
 
             <>
@@ -120,7 +226,7 @@ export default function App() {
         <div>
           <Login />
           <p style={{ textAlign: 'center', marginTop: '12px' }}>
-            <button className="btn-ghost" onClick={() => setCurrentView('home')}>← Back to Home</button>
+            <button className="btn-ghost" onClick={() => setCurrentView('home')}>Back to Home</button>
           </p>
         </div>
       )}
@@ -129,7 +235,7 @@ export default function App() {
         <div>
           <Signup />
           <p style={{ textAlign: 'center', marginTop: '12px' }}>
-            <button className="btn-ghost" onClick={() => setCurrentView('home')}>← Back to Home</button>
+            <button className="btn-ghost" onClick={() => setCurrentView('home')}>Back to Home</button>
           </p>
         </div>
       )}
@@ -138,7 +244,7 @@ export default function App() {
         <div>
           <VerifyEmail />
           <p style={{ textAlign: 'center', marginTop: '12px' }}>
-            <button className="btn-ghost" onClick={() => setCurrentView('home')}>← Back to Home</button>
+            <button className="btn-ghost" onClick={() => setCurrentView('home')}>Back to Home</button>
           </p>
         </div>
       )}
@@ -147,7 +253,7 @@ export default function App() {
         <div>
           <PartnerApplication />
           <p style={{ textAlign: 'center', marginTop: '12px' }}>
-            <button className="btn-ghost" onClick={() => setCurrentView('home')}>← Back to Home</button>
+            <button className="btn-ghost" onClick={() => setCurrentView('home')}>Back to Home</button>
           </p>
         </div>
       )}
@@ -156,14 +262,20 @@ export default function App() {
         <div>
           <AdminApplications />
           <p style={{ textAlign: 'center', marginTop: '12px' }}>
-            <button className="btn-ghost" onClick={() => setCurrentView('home')}>← Back to Home</button>
+            <button className="btn-ghost" onClick={() => setCurrentView('home')}>Back to Home</button>
           </p>
         </div>
       )}
 
       {currentView === 'dashboard' && (
         <div>
-          <RestaurantDashboard onNavigateBilling={() => alert('Billing Plans Page will be built in Milestone 5!')} />
+          <RestaurantDashboard onNavigateBilling={() => setCurrentView('billing')} />
+        </div>
+      )}
+
+      {currentView === 'billing' && (
+        <div>
+          <Billing onBackToDashboard={() => setCurrentView('dashboard')} />
         </div>
       )}
 

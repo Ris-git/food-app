@@ -114,7 +114,6 @@ export const WizardContainer: React.FC<WizardContainerProps> = ({ onSuccess }) =
           textAlign: 'center',
         }}
       >
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
         <h3 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '8px', fontFamily: 'var(--font-display)', color: '#059669' }}>
           Application Submitted Successfully!
         </h3>
@@ -122,7 +121,7 @@ export const WizardContainer: React.FC<WizardContainerProps> = ({ onSuccess }) =
           Your partner onboarding application with <strong>{formData.stagedMenuItems.length} staged menu items</strong> is now under Admin review.
         </p>
         <button className="btn-ghost" onClick={() => window.location.reload()}>
-          View Application Status →
+          View Application Status
         </button>
       </div>
     );
