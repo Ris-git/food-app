@@ -127,12 +127,20 @@ async function checkEntitlement(restaurantId, feature, context = {}) {
     subscription.trialEndsAt &&
     new Date(subscription.trialEndsAt).getTime() <= Date.now();
 
-  if (trialExpired) {
+  // Failed or cancelled billing must not remove access that was already paid
+  // for. Once that paid period ends, all feature checks consistently fall
+  // back to Free without waiting for a scheduled database migration.
+  const paidAccessExpired =
+    ['past_due', 'cancelled'].includes(status) &&
+    (!subscription.currentPeriodEnd ||
+      new Date(subscription.currentPeriodEnd).getTime() <= Date.now());
+
+  if (trialExpired || paidAccessExpired) {
     const freePlan = await Plan.findOne({ isDefaultFreePlan: true, isActive: true }).lean();
     if (!freePlan) {
       return {
         allowed: false,
-        reason: 'The trial has expired and the Free plan is not configured.',
+        reason: 'Free fallback limits are not configured.',
         planName: plan.displayName,
         status,
       };
@@ -161,11 +169,14 @@ async function checkEntitlement(restaurantId, feature, context = {}) {
   if (trialExpired) {
     result.reason += ' Your trial has expired, so Free plan limits apply.';
   }
+  if (paidAccessExpired) {
+    result.reason += ' Your paid access period has ended, so Free plan limits apply.';
+  }
 
   // 6. If subscription is not active, limits are already constrained
   //    because the subscription.plan will be the 'free' plan at this point.
   //    But add a clarifying note if status is 'past_due' (still has access).
-  if (status === 'past_due' && result.allowed) {
+  if (status === 'past_due' && !paidAccessExpired && result.allowed) {
     result.reason += ' (Note: your payment is overdue — please update your billing details.)';
   }
 

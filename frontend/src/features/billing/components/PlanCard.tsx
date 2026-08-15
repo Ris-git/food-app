@@ -4,6 +4,9 @@ import type { Plan } from '../../../types';
 type PlanCardProps = {
   plan: Plan;
   isCurrent: boolean;
+  isTrialEntitlement: boolean;
+  isLoading: boolean;
+  onSelect: (plan: Plan) => void;
 };
 
 const LIMIT_LABELS: Record<string, string> = {
@@ -30,7 +33,8 @@ const formatPrice = (plan: Plan) => {
   }).format(plan.price / 100);
 };
 
-export const PlanCard: React.FC<PlanCardProps> = ({ plan, isCurrent }) => {
+export const PlanCard: React.FC<PlanCardProps> = ({ plan, isCurrent, isTrialEntitlement, isLoading, onSelect }) => {
+  const canCheckout = !isCurrent && plan.price > 0 && plan.billingInterval !== 'none';
   return (
     <article
       style={{
@@ -76,21 +80,31 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, isCurrent }) => {
 
       <button
         type="button"
-        disabled
+        disabled={!canCheckout || isLoading}
+        onClick={() => onSelect(plan)}
         style={{
           width: '100%',
           marginTop: '24px',
           padding: '11px 16px',
           borderRadius: '10px',
           border: '1px solid #CBD5E1',
-          backgroundColor: isCurrent ? '#F1F5F9' : '#E2E8F0',
-          color: '#64748B',
+          backgroundColor: canCheckout ? '#0F172A' : '#F1F5F9',
+          color: canCheckout ? '#FFFFFF' : '#64748B',
           fontSize: '13px',
           fontWeight: 700,
-          cursor: 'not-allowed',
+          cursor: canCheckout && !isLoading ? 'pointer' : 'not-allowed',
+          opacity: isLoading ? 0.7 : 1,
         }}
       >
-        {isCurrent ? 'Current plan' : 'Checkout not available yet'}
+        {isCurrent
+          ? 'Current plan'
+          : plan.price === 0
+            ? 'Included automatically'
+            : isLoading
+              ? 'Opening checkout...'
+              : isTrialEntitlement
+                ? `Subscribe to ${plan.displayName}`
+                : `Choose ${plan.displayName}`}
       </button>
     </article>
   );

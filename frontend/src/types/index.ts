@@ -111,7 +111,6 @@ export type Plan = {
   currency: string;
   billingInterval: 'monthly' | 'yearly' | 'none';
   trialDays: number;
-  razorpayPlanId: string | null;
   isActive: boolean;
   isDefaultTrialPlan: boolean;
   isDefaultFreePlan: boolean;

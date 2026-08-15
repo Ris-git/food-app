@@ -56,6 +56,39 @@ const subscriptionSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    providerStatus: {
+      type: String,
+      default: null,
+    },
+    lastProviderEventAt: {
+      type: Date,
+      default: null,
+    },
+    authenticatedAt: {
+      type: Date,
+      default: null,
+    },
+
+    // A Checkout attempt is not an entitlement. These fields keep the
+    // requested plan separate until Razorpay verifies it in Milestone 8.
+    pendingPlan: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Plan',
+      default: null,
+    },
+    pendingProviderSubId: {
+      type: String,
+      default: null,
+    },
+    pendingProviderStatus: {
+      type: String,
+      enum: ['created', 'authenticated', 'active', 'pending', 'halted', 'cancelled', 'completed', 'expired'],
+      default: null,
+    },
+    pendingCreatedAt: {
+      type: Date,
+      default: null,
+    },
 
     // Active billing period — set by Razorpay webhook on payment success
     currentPeriodStart: {
@@ -80,6 +113,14 @@ const subscriptionSchema = new mongoose.Schema(
     },
   },
   { timestamps: true }
+);
+
+subscriptionSchema.index(
+  { pendingProviderSubId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { pendingProviderSubId: { $type: 'string' } },
+  }
 );
 
 module.exports = mongoose.model('Subscription', subscriptionSchema);

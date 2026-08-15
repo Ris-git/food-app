@@ -7,6 +7,50 @@ import {
 } from '../../features/billing/services/billingService';
 import type { Plan } from '../../types';
 
+type RazorpayResult = {
+  razorpay_payment_id: string;
+  razorpay_subscription_id: string;
+  razorpay_signature: string;
+};
+
+type RazorpayOptions = {
+  key: string;
+  subscription_id: string;
+  name: string;
+  description: string;
+  prefill: { name: string; email: string; contact: string };
+  theme: { color: string };
+  handler: (result: RazorpayResult) => void;
+  modal: { ondismiss: () => void };
+};
+
+declare global {
+  interface Window {
+    Razorpay: new (options: RazorpayOptions) => { open: () => void };
+  }
+}
+
+const loadRazorpayCheckout = () => {
+  if (window.Razorpay) return Promise.resolve();
+
+  return new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>('script[data-foody-razorpay]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error('Unable to load Razorpay Checkout.')), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.dataset.foodyRazorpay = 'true';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Unable to load Razorpay Checkout.'));
+    document.body.appendChild(script);
+  });
+};
+
 type BillingProps = {
   onBackToDashboard: () => void;
 };
@@ -28,6 +72,8 @@ export const Billing: React.FC<BillingProps> = ({ onBackToDashboard }) => {
   const [current, setCurrent] = useState<CurrentSubscriptionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [checkoutPlanId, setCheckoutPlanId] = useState<string | null>(null);
+  const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
 
   const loadBilling = async () => {
     try {
@@ -70,6 +116,42 @@ export const Billing: React.FC<BillingProps> = ({ onBackToDashboard }) => {
       cancelled = true;
     };
   }, []);
+
+  const startCheckout = async (selectedPlan: Plan) => {
+    try {
+      setCheckoutPlanId(selectedPlan._id);
+      setCheckoutMessage(null);
+      const response = await billingService.createCheckout(selectedPlan._id);
+      await loadRazorpayCheckout();
+
+      const checkout = new window.Razorpay({
+        key: response.checkout.keyId,
+        subscription_id: response.checkout.subscriptionId,
+        name: response.checkout.businessName,
+        description: `${response.checkout.plan.displayName} subscription`,
+        prefill: response.checkout.prefill,
+        theme: { color: '#059669' },
+        handler: (result) => {
+          void billingService.verifyCheckout(result)
+            .then((verification) => {
+              setCheckoutMessage(verification.message);
+              return loadBilling();
+            })
+            .catch((err: unknown) => {
+              setCheckoutMessage(err instanceof Error ? err.message : 'Unable to verify Checkout.');
+            })
+            .finally(() => setCheckoutPlanId(null));
+        },
+        modal: {
+          ondismiss: () => setCheckoutPlanId(null),
+        },
+      });
+      checkout.open();
+    } catch (err: unknown) {
+      setCheckoutMessage(err instanceof Error ? err.message : 'Unable to open checkout.');
+      setCheckoutPlanId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -137,9 +219,15 @@ export const Billing: React.FC<BillingProps> = ({ onBackToDashboard }) => {
         <div style={{ marginBottom: '20px' }}>
           <h2 style={{ margin: '0 0 6px', fontSize: '24px', color: '#FFFFFF' }}>Available plans</h2>
           <p style={{ margin: 0, color: '#D1FAE5', fontSize: '14px' }}>
-            Compare plan limits. Payment checkout will be connected in a later milestone.
+            Choose a paid plan to authorize recurring billing. Your trial remains active until its scheduled end.
           </p>
         </div>
+
+        {checkoutMessage && (
+          <div style={{ marginBottom: '18px', padding: '13px 16px', borderRadius: '10px', backgroundColor: '#FFFFFF', color: '#334155', border: '1px solid #CBD5E1', fontSize: '13px' }}>
+            {checkoutMessage}
+          </div>
+        )}
 
         {plans.length > 0 ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '18px' }}>
@@ -147,7 +235,10 @@ export const Billing: React.FC<BillingProps> = ({ onBackToDashboard }) => {
               <PlanCard
                 key={availablePlan._id}
                 plan={availablePlan}
-                isCurrent={availablePlan._id === plan._id}
+                isCurrent={availablePlan._id === plan._id && subscription.status !== 'trial'}
+                isTrialEntitlement={availablePlan._id === plan._id && subscription.status === 'trial'}
+                isLoading={checkoutPlanId === availablePlan._id}
+                onSelect={startCheckout}
               />
             ))}
           </div>

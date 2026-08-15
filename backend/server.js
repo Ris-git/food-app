@@ -7,6 +7,7 @@ if (typeof global.crypto === 'undefined') {
 const express = require('express');
 const app = express();
 const cookieParser = require('cookie-parser');
+const razorpayWebhookRoutes = require('./routes/razorpayWebhookRoutes');
 
 // Database connection
 const db = require('./config/db');
@@ -16,6 +17,9 @@ const { jwtAuthMiddleware } = require('./middlewares/authMiddleware');
 
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
+
+// Razorpay signs the exact bytes, so mount its raw-body route first.
+app.use('/billing/webhooks/razorpay', razorpayWebhookRoutes);
 
 // Body parsing & Cookie parsing
 app.use(express.json());
