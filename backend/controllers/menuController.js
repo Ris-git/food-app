@@ -62,6 +62,10 @@ exports.importMenuItems = async (req, res) => {
     }
 
     const currentCount = await MenuItem.countDocuments({ restaurant: restaurant._id });
+    const importEntitlement = await checkEntitlement(restaurant._id, FEATURES.IMPORT_MENU);
+    if (!importEntitlement.allowed) {
+      return res.status(403).json({ success: false, message: importEntitlement.reason });
+    }
     const entitlement = await checkEntitlement(restaurant._id, FEATURES.ADD_MENU_ITEM, {
       currentCount: currentCount + items.length - 1,
     });

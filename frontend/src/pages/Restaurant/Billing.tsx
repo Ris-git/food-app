@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Button from '../../components/Button';
 import PlanCard from '../../features/billing/components/PlanCard';
+import PlanComparison from '../../features/billing/components/PlanComparison';
 import {
   billingService,
   type CurrentSubscriptionResponse,
@@ -368,6 +369,7 @@ export const Billing: React.FC<BillingProps> = ({ onBackToDashboard }) => {
             No subscription plans are currently available.
           </div>
         )}
+        {plans.length > 0 && <PlanComparison plans={plans} />}
       </section>
     </main>
   );

@@ -1,35 +1,18 @@
 const Subscription = require('../models/Subscription');
 const Plan = require('../models/Plan');
+ //The single source of truth for feature access decisions in Foody.
 
-/**
- * entitlementService.js
- *
- * The single source of truth for feature access decisions in Foody.
- *
- * Usage:
- *   const { checkEntitlement } = require('../services/entitlementService');
- *   const { allowed, reason } = await checkEntitlement(restaurantId, 'add_menu_item', { currentCount: 18 });
- *
- * Rules:
- *  - NEVER scatter plan checks (if plan === 'growth') across routes.
- *  - Always call checkEntitlement() for any feature that has a plan limit.
- *  - Pass the current resource count via context so resource collections do
- *    not need to be queried again inside this service.
- */
 
-// ─── Supported Features ────────────────────────────────────────────────────
+
 // Add new features here as the product grows. No other file needs to change.
 const FEATURES = {
   ADD_MENU_ITEM:   'add_menu_item',
   ADD_STAFF:       'add_staff',
   VIEW_ANALYTICS:  'view_analytics',
+  IMPORT_MENU:     'import_menu',
 };
 
-// ─── Feature Evaluators ────────────────────────────────────────────────────
-/**
- * Each evaluator receives the plan limits object and any context data.
- * Returns { allowed: boolean, reason: string }.
- */
+
 const featureEvaluators = {
   [FEATURES.ADD_MENU_ITEM]: (limits, context = {}) => {
     const { currentCount = 0 } = context;
@@ -89,6 +72,9 @@ const featureEvaluators = {
       reason: 'Analytics is not available on the Free plan. Upgrade to Growth or Pro.',
     };
   },
+  [FEATURES.IMPORT_MENU]: (limits) => limits.menuImportAccess
+    ? { allowed: true, reason: 'Menu import is included in this plan.' }
+    : { allowed: false, reason: 'CSV/XLSX menu import requires Growth or Pro.' },
 };
 
 // ─── Main Export ───────────────────────────────────────────────────────────

@@ -24,6 +24,7 @@
     "seed:paid-test-accounts": "node scripts/seedPaidTestAccounts.js",
     "seed:test-accounts": "node scripts/seedPaidTestAccounts.js",
     "seed:superadmin": "node scripts/seedSuperAdmin.js",
+    "seed:admin-test-accounts": "node scripts/seedAdminTestAccounts.js",
     "test:email": "node scripts/testEmail.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

@@ -100,6 +100,13 @@ export type PlanLimits = {
   staffAccounts: number;  // -1 = unlimited
   menuItems: number;      // -1 = unlimited
   analyticsAccess: boolean;
+  advancedAnalyticsAccess: boolean;
+  menuImportAccess: boolean;
+  orderHistoryDays: number;
+  restaurantLocations: number;
+  promotionalOffers: number;
+  prioritySupport: boolean;
+  customReports: boolean;
   [key: string]: number | boolean;
 };
 

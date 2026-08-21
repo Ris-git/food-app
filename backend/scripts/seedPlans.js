@@ -30,6 +30,13 @@ const PLANS = [
       staffAccounts: 0,
       menuItems: 20,
       analyticsAccess: false,
+      advancedAnalyticsAccess: false,
+      menuImportAccess: false,
+      orderHistoryDays: 7,
+      restaurantLocations: 1,
+      promotionalOffers: 0,
+      prioritySupport: false,
+      customReports: false,
     },
   },
   {
@@ -47,6 +54,13 @@ const PLANS = [
       staffAccounts: 3,
       menuItems: -1,        // -1 = unlimited
       analyticsAccess: true,
+      advancedAnalyticsAccess: false,
+      menuImportAccess: true,
+      orderHistoryDays: 90,
+      restaurantLocations: 1,
+      promotionalOffers: 5,
+      prioritySupport: false,
+      customReports: false,
     },
   },
   {
@@ -64,6 +78,13 @@ const PLANS = [
       staffAccounts: -1,   // -1 = unlimited
       menuItems: -1,        // -1 = unlimited
       analyticsAccess: true,
+      advancedAnalyticsAccess: true,
+      menuImportAccess: true,
+      orderHistoryDays: -1,
+      restaurantLocations: 5,
+      promotionalOffers: -1,
+      prioritySupport: true,
+      customReports: true,
     },
   },
 ];
@@ -76,9 +97,13 @@ async function seedPlans() {
 
     for (const planData of PLANS) {
       // upsert: insert if not found, update if already exists
+      const update = { ...planData };
+      // Razorpay IDs are environment-specific provider state. A product-policy
+      // seed must never erase IDs created by the sync command.
+      if (update.razorpayPlanId === null && update.name !== 'free') delete update.razorpayPlanId;
       const result = await Plan.findOneAndUpdate(
         { name: planData.name },    // filter by unique name
-        { $set: planData },         // set all fields
+        { $set: update },           // set all product-policy fields
         { upsert: true, returnDocument: 'after' }
 
       );

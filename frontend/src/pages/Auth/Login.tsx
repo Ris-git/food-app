@@ -23,9 +23,12 @@ export const Login: React.FC = () => {
     <div style={{ maxWidth: '400px', margin: '60px auto', padding: '32px', backgroundColor: '#FFFFFF', borderRadius: '24px', color: '#0F172A', boxShadow: '0 12px 32px rgba(0,0,0,0.15)' }}>
       <h2 style={{ marginBottom: '20px', fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: 800 }}>Log In to Foody</h2>
       {error && <div style={{ color: '#EF4444', marginBottom: '16px', fontSize: '14px' }}>{error}</div>}
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} autoComplete="on">
         <Input
           label="Username"
+          id="login-username"
+          name="username"
+          autoComplete="username"
           type="text"
           placeholder="e.g. johndoe"
           value={username}
@@ -34,6 +37,9 @@ export const Login: React.FC = () => {
         />
         <Input
           label="Password"
+          id="login-password"
+          name="password"
+          autoComplete="current-password"
           type="password"
           placeholder="••••••••"
           value={password}

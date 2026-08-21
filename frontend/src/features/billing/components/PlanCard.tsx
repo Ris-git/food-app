@@ -18,6 +18,7 @@ const LIMIT_LABELS: Record<string, string> = {
   menuItems: 'Menu items',
   analyticsAccess: 'Analytics and reports',
 };
+const CARD_LIMITS = new Set(['staffAccounts', 'menuItems', 'analyticsAccess']);
 
 const formatLimitName = (key: string) =>
   LIMIT_LABELS[key] || key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (letter) => letter.toUpperCase());
@@ -82,7 +83,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, isCurrent, isTrialEnti
       <div style={{ borderTop: '1px solid #E2E8F0', margin: '20px 0 16px' }} />
 
       <dl style={{ margin: 0, display: 'grid', gap: '12px', flex: 1 }}>
-        {Object.entries(plan.limits).map(([key, value]) => (
+        {Object.entries(plan.limits).filter(([key]) => CARD_LIMITS.has(key)).map(([key, value]) => (
           <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', fontSize: '13px' }}>
             <dt style={{ color: '#64748B' }}>{formatLimitName(key)}</dt>
             <dd style={{ margin: 0, color: '#1E293B', fontWeight: 650, textAlign: 'right' }}>

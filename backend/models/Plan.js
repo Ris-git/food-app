@@ -30,6 +30,13 @@ const planLimitsSchema = new mongoose.Schema(
       required: true,
       default: false,
     },
+    advancedAnalyticsAccess: { type: Boolean, default: false },
+    menuImportAccess: { type: Boolean, default: false },
+    orderHistoryDays: { type: Number, default: 7, comment: '-1 = unlimited.' },
+    restaurantLocations: { type: Number, default: 1 },
+    promotionalOffers: { type: Number, default: 0, comment: '-1 = unlimited.' },
+    prioritySupport: { type: Boolean, default: false },
+    customReports: { type: Boolean, default: false },
   },
   { _id: false }
 );

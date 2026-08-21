@@ -2,16 +2,6 @@ const mongoose = require('mongoose');
 
 /**
  * Subscription — tracks what plan a restaurant is currently on.
- *
- * Design decisions:
- *  - Every restaurant always has exactly ONE Subscription document.
- *    Created automatically when admin approves the application.
- *  - status uses enum to prevent unexpected values ever being persisted.
- *  - plan is a reference (ObjectId), not a copy. This means the live plan
- *    limits are always read from the Plan document. Never mutate a Plan
- *    that has active subscribers — create a new Plan version instead.
- *  - Razorpay fields (providerPlanId, providerSubId) are null until the
- *    restaurant upgrades to a paid plan (Milestone 7).
  */
 const subscriptionSchema = new mongoose.Schema(
   {
