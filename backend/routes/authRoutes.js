@@ -316,8 +316,17 @@ router.post('/login', authLimiter , loginValidationRules, validate, async (req, 
     try {
         const { username, password } = req.body;
         const foundUser = await User.findOne({ username: username });
+        const passwordMatches = foundUser
+          ? await foundUser.comparePassword(password)
+          : false;
 
-        if (!foundUser || !(await foundUser.comparePassword(password))) {
+        if (!foundUser || !passwordMatches) {
+            console.warn('Login rejected', {
+                username,
+                userFound: Boolean(foundUser),
+                passwordMatches,
+                database: User.db.name,
+            });
             return res.status(401).json({ 
                 success: false,
                 message: 'Invalid username or password' 
