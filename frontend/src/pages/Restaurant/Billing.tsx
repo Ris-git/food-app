@@ -7,6 +7,7 @@ import {
   type CurrentSubscriptionResponse,
 } from '../../features/billing/services/billingService';
 import type { Plan } from '../../types';
+import { useOrganization } from '../../features/organization/context/OrganizationContext';
 
 type RazorpayResult = {
   razorpay_payment_id: string;
@@ -69,6 +70,7 @@ const formatStatus = (status: string) =>
   status.replace(/_/g, ' ').replace(/^./, (letter) => letter.toUpperCase());
 
 export const Billing: React.FC<BillingProps> = ({ onBackToDashboard }) => {
+  const { activeOrganization } = useOrganization();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [current, setCurrent] = useState<CurrentSubscriptionResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -119,7 +121,7 @@ export const Billing: React.FC<BillingProps> = ({ onBackToDashboard }) => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activeOrganization?._id]);
 
   const startCheckout = async (selectedPlan: Plan) => {
     try {

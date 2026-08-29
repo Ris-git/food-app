@@ -9,8 +9,12 @@ const subscriptionSchema = new mongoose.Schema(
     restaurant: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Restaurant',
-      required: true,
-      unique: true, // one restaurant = one subscription
+      default: null,
+    },
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
+      default: null,
     },
 
     // Reference to the Plan document (use .populate('plan') to get limits)
@@ -126,6 +130,14 @@ const subscriptionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+subscriptionSchema.index(
+  { restaurant: 1 },
+  { unique: true, partialFilterExpression: { restaurant: { $type: 'objectId' } } }
+);
+subscriptionSchema.index(
+  { organization: 1 },
+  { unique: true, partialFilterExpression: { organization: { $type: 'objectId' } } }
+);
 subscriptionSchema.index(
   { pendingProviderSubId: 1 },
   {

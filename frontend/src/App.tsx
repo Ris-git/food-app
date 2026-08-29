@@ -9,6 +9,10 @@ import AdminApplications from './pages/Admin/Applications';
 import RestaurantDashboard from './pages/Restaurant/Dashboard';
 import Billing from './pages/Restaurant/Billing';
 import { useAuth } from './features/auth/context/AuthContext';
+import OrganizationSwitcher from './features/organization/components/OrganizationSwitcher';
+import OrganizationManagement from './pages/Restaurant/OrganizationManagement';
+import { organizationService } from './features/organization/services/organizationService';
+import { useOrganization } from './features/organization/context/OrganizationContext';
 
 const profileMenuItemStyle: CSSProperties = {
   display: 'block',
@@ -24,7 +28,7 @@ const profileMenuItemStyle: CSSProperties = {
 };
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'login' | 'signup' | 'verify' | 'partner' | 'admin' | 'dashboard' | 'billing'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'login' | 'signup' | 'verify' | 'partner' | 'admin' | 'dashboard' | 'billing' | 'organization'>('home');
   const [location, setLocation] = useState('');
   const [showLocationToast, setShowLocationToast] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,6 +37,7 @@ export default function App() {
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
   const { user, logout } = useAuth();
+  const { reload: reloadOrganizations } = useOrganization();
   const profileName = user?.name || user?.username || 'Account';
   const profileInitials = profileName
     .split(/\s+/)
@@ -43,10 +48,36 @@ export default function App() {
 
   // Auto-route restaurant partners to their dashboard on login
   useEffect(() => {
-    if (user?.role === 'restaurant' && (currentView === 'home' || currentView === 'login' || currentView === 'partner')) {
+    const acceptingStaffInvitation = new URLSearchParams(window.location.search).has('staffInvite');
+    if (!acceptingStaffInvitation && user?.role === 'restaurant' && (currentView === 'home' || currentView === 'login' || currentView === 'partner')) {
       setCurrentView('dashboard');
     }
   }, [user]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('staffInvite');
+    if (!token) return;
+    if (!user) {
+      setCurrentView('login');
+      return;
+    }
+    organizationService.acceptInvitation(token)
+      .then(async () => {
+        params.delete('staffInvite');
+        window.history.replaceState({}, '', `${window.location.pathname}${params.toString() ? `?${params}` : ''}`);
+        await reloadOrganizations();
+        window.location.reload();
+      })
+      .catch(async (error) => {
+        const message = error.message || 'The staff invitation could not be accepted.';
+        setActiveModal(message);
+        if (/sign in using the invited email/i.test(message)) {
+          await logout();
+          setCurrentView('login');
+        }
+      });
+  }, [user?.id]);
 
   useEffect(() => {
     if (!profileOpen) return;
@@ -101,7 +132,7 @@ export default function App() {
     setCurrentView('home');
   };
 
-  const navigateFromProfile = (view: 'dashboard' | 'billing' | 'admin' | 'partner') => {
+  const navigateFromProfile = (view: 'dashboard' | 'billing' | 'admin' | 'partner' | 'organization') => {
     setProfileOpen(false);
     setCurrentView(view);
   };
@@ -116,6 +147,7 @@ export default function App() {
         </div>
 
         <nav className="nav-actions">
+          {user?.role === 'restaurant' && <OrganizationSwitcher />}
           {user ? (
             <div ref={profileMenuRef} style={{ position: 'relative' }}>
               <button
@@ -175,6 +207,14 @@ export default function App() {
                         style={profileMenuItemStyle}
                       >
                         Billing
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => navigateFromProfile('organization')}
+                        style={profileMenuItemStyle}
+                      >
+                        Restaurants & staff
                       </button>
                     </>
                   )}
@@ -284,6 +324,10 @@ export default function App() {
         <div>
           <Billing onBackToDashboard={() => setCurrentView('dashboard')} />
         </div>
+      )}
+
+      {currentView === 'organization' && (
+        <OrganizationManagement onBack={() => setCurrentView('dashboard')} />
       )}
 
       {currentView === 'home' && (

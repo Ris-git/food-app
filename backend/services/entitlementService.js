@@ -1,5 +1,6 @@
 const Subscription = require('../models/Subscription');
 const Plan = require('../models/Plan');
+const Restaurant = require('../models/Restaurant');
  //The single source of truth for feature access decisions in Foody.
 
 
@@ -10,6 +11,8 @@ const FEATURES = {
   ADD_STAFF:       'add_staff',
   VIEW_ANALYTICS:  'view_analytics',
   IMPORT_MENU:     'import_menu',
+  CREATE_RESTAURANT: 'create_restaurant',
+  INVITE_STAFF: 'invite_staff',
 };
 
 
@@ -75,6 +78,20 @@ const featureEvaluators = {
   [FEATURES.IMPORT_MENU]: (limits) => limits.menuImportAccess
     ? { allowed: true, reason: 'Menu import is included in this plan.' }
     : { allowed: false, reason: 'CSV/XLSX menu import requires Growth or Pro.' },
+  [FEATURES.CREATE_RESTAURANT]: (limits, context = {}) => {
+    const currentCount = context.currentCount || 0;
+    if (limits.restaurantLocations === -1 || currentCount < limits.restaurantLocations) {
+      return { allowed: true, reason: limits.restaurantLocations === -1 ? 'Unlimited restaurants.' : `Restaurant ${currentCount + 1} of ${limits.restaurantLocations} allowed.` };
+    }
+    return { allowed: false, reason: `You've reached your ${limits.restaurantLocations} restaurant limit.` };
+  },
+  [FEATURES.INVITE_STAFF]: (limits, context = {}) => {
+    const currentCount = context.currentCount || 0;
+    if (limits.staffAccounts === -1 || currentCount < limits.staffAccounts) {
+      return { allowed: true, reason: limits.staffAccounts === -1 ? 'Unlimited staff accounts.' : `Staff account ${currentCount + 1} of ${limits.staffAccounts} allowed.` };
+    }
+    return { allowed: false, reason: `You've reached your ${limits.staffAccounts} staff account limit.` };
+  },
 };
 
 // ─── Main Export ───────────────────────────────────────────────────────────
@@ -87,9 +104,22 @@ const featureEvaluators = {
  *
  * @returns {Promise<{ allowed: boolean, reason: string, planName: string, status: string }>}
  */
-async function checkEntitlement(restaurantId, feature, context = {}) {
+async function checkEntitlement(scopeId, feature, context = {}) {
+  let organizationId = context.organizationId || null;
+  let restaurantId = context.restaurantId || null;
+  if (!organizationId && scopeId) {
+    const restaurant = await Restaurant.findById(scopeId).select('organization').lean();
+    if (restaurant) {
+      restaurantId = restaurant._id;
+      organizationId = restaurant.organization || null;
+    } else {
+      organizationId = scopeId;
+    }
+  }
   // 1. Fetch the restaurant's subscription with plan limits populated
-  const subscription = await Subscription.findOne({ restaurant: restaurantId })
+  const subscription = await Subscription.findOne(
+    organizationId ? { organization: organizationId } : { restaurant: restaurantId }
+  )
     .populate('plan')
     .lean(); // .lean() returns a plain JS object — faster, no Mongoose overhead
 
@@ -139,10 +169,10 @@ async function checkEntitlement(restaurantId, feature, context = {}) {
   // 4. Find the evaluator for the requested feature
   const evaluate = featureEvaluators[feature];
   if (!evaluate) {
-    // Unknown feature — fail open with a warning (don't silently block)
+    // Unknown feature keys are denied so typos cannot accidentally unlock paid access.
     console.warn(`[Entitlement] Unknown feature requested: "${feature}"`);
     return {
-      allowed: true,
+      allowed: false,
       reason: `Feature "${feature}" has no entitlement rule defined.`,
       planName,
       status,

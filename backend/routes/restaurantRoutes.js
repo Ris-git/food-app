@@ -10,6 +10,7 @@ const MenuItem = require("../models/MenuItem");
 const Order = require("../models/Order");
 const { reconcileSubscription } = require("../services/subscriptionLifecycleService");
 const { checkEntitlement, FEATURES } = require("../services/entitlementService");
+const { requireRestaurant, RESTAURANT_PERMISSIONS } = require("../services/organizationAccessService");
 
 // Public Routes
 router.get("/", restaurantController.getAllRestaurants);
@@ -18,7 +19,10 @@ router.get("/", restaurantController.getAllRestaurants);
 router.post(
   "/",
   jwtAuthMiddleware,
-  authorize([permissions.MANAGE_RESTAURANT, permissions.ADMIN_ALL]),
+  (req, res, next) => ["admin", "superAdmin"].includes(req.user.role)
+    ? next()
+    : res.status(410).json({ success: false, message: "Create restaurants from the organization endpoint so plan limits can be enforced." }),
+  authorize([permissions.ADMIN_ALL]),
   restaurantController.createRestaurant
 );
 
@@ -40,22 +44,17 @@ router.put(
  *
  * Protected: requires valid JWT with role === 'restaurant'.
  */
-router.get("/my-dashboard", jwtAuthMiddleware, async (req, res) => {
+router.get("/my-dashboard", jwtAuthMiddleware, requireRestaurant(RESTAURANT_PERMISSIONS.VIEW_DASHBOARD), async (req, res) => {
   try {
     // Step 1: Find this user's restaurant
-    const restaurant = await Restaurant.findOne({ user: req.user.id });
-    if (!restaurant) {
-      return res.status(404).json({
-        success: false,
-        message: "No restaurant found for this account.",
-      });
-    }
+    const restaurant = req.restaurant;
 
     // Step 2: Fetch subscription + menu items in parallel (Promise.all)
-    let subscription = await Subscription.findOne({ restaurant: restaurant._id });
+    const subscriptionQuery = req.organization ? { organization: req.organization._id } : { restaurant: restaurant._id };
+    let subscription = await Subscription.findOne(subscriptionQuery);
     await reconcileSubscription(subscription);
     const menuItems = await MenuItem.find({ restaurant: restaurant._id }).sort({ createdAt: -1 }).lean();
-    subscription = await Subscription.findOne({ restaurant: restaurant._id }).populate("plan");
+    subscription = await Subscription.findOne(subscriptionQuery).populate("plan");
 
     // Step 3: Compute trial days remaining
     let trialDaysRemaining = null;
@@ -71,6 +70,11 @@ router.get("/my-dashboard", jwtAuthMiddleware, async (req, res) => {
       plan: subscription?.plan || null,
       trialDaysRemaining,
       menuItems,
+      organization: req.organization || null,
+      access: {
+        organizationRole: req.organizationMembership?.role || 'OWNER',
+        restaurantRole: req.restaurantMembership?.role || 'OWNER',
+      },
     });
   } catch (err) {
     console.error("[GET /restaurant/my-dashboard] Error:", err.message);
@@ -81,12 +85,11 @@ router.get("/my-dashboard", jwtAuthMiddleware, async (req, res) => {
   }
 });
 
-router.get("/my-analytics", jwtAuthMiddleware, async (req, res) => {
+router.get("/my-analytics", jwtAuthMiddleware, requireRestaurant(RESTAURANT_PERMISSIONS.VIEW_ANALYTICS), async (req, res) => {
   try {
-    const restaurant = await Restaurant.findOne({ user: req.user.id });
-    if (!restaurant) return res.status(404).json({ success: false, message: "Restaurant not found." });
+    const restaurant = req.restaurant;
 
-    const entitlement = await checkEntitlement(restaurant._id, FEATURES.VIEW_ANALYTICS);
+    const entitlement = await checkEntitlement(req.organization?._id || restaurant._id, FEATURES.VIEW_ANALYTICS, { organizationId: req.organization?._id, restaurantId: restaurant._id });
     if (!entitlement.allowed) return res.status(403).json({ success: false, message: entitlement.reason });
 
     const to = req.query.to ? new Date(req.query.to) : new Date();
@@ -135,10 +138,9 @@ router.get("/my-analytics", jwtAuthMiddleware, async (req, res) => {
   }
 });
 
-router.patch("/my-settings", jwtAuthMiddleware, async (req, res) => {
+router.patch("/my-settings", jwtAuthMiddleware, requireRestaurant(RESTAURANT_PERMISSIONS.MANAGE_SETTINGS), async (req, res) => {
   try {
-    const restaurant = await Restaurant.findOne({ user: req.user.id });
-    if (!restaurant) return res.status(404).json({ success: false, message: "Restaurant not found." });
+    const restaurant = await Restaurant.findById(req.restaurant._id);
 
     const allowed = ["name", "franchiseName", "phone", "address", "formattedAddress", "cuisine", "operatingHours", "operationalStatus"];
     for (const field of allowed) {

@@ -1,33 +1,18 @@
 // middlewares/rateLimiter.js
 const rateLimit = require('express-rate-limit');
-const { RedisStore } = require('rate-limit-redis');
-const { createClient } = require('redis');
-
-// 1. Initialize Redis Client
-const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
-  socket: {
-    // Retry connection automatically so when container spins up later, it connects immediately
-    reconnectStrategy: (retries) => Math.min(retries * 500, 3000),
-  },
-});
-
-// Event listener: Log when Redis container is connected and ready
-redisClient.on('ready', () => {
-  console.log('⚡ Connected to Redis for rate limiting successfully!');
-});
-
-// Suppress raw error logs when Redis container is offline
-redisClient.on('error', () => {});
-
-// Connect asynchronously on startup
-(async () => {
-  try {
-    await redisClient.connect();
-  } catch (err) {
-    console.warn('⚠️ Redis offline. Rate limiter automatically using in-memory fallback.');
-  }
-})();
+let redisStore;
+if (process.env.USE_REDIS_RATE_LIMITER === 'true') {
+  const { RedisStore } = require('rate-limit-redis');
+  const { createClient } = require('redis');
+  const redisClient = createClient({
+    url: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
+    socket: { reconnectStrategy: (retries) => retries > 3 ? false : Math.min(retries * 500, 1500) },
+  });
+  redisClient.on('ready', () => console.log('Connected to Redis for rate limiting.'));
+  redisClient.on('error', (error) => console.warn('Redis rate limiter error:', error.message));
+  redisClient.connect().catch((error) => console.warn('Redis rate limiter unavailable:', error.message));
+  redisStore = new RedisStore({ prefix: 'auth:', sendCommand: (...args) => redisClient.sendCommand(args) });
+}
 
 // 2. Auth Limiter
 const authLimiter = rateLimit({
@@ -42,16 +27,7 @@ const authLimiter = rateLimit({
     success: false,
     message: 'Too many authentication attempts. Please try again after 15 minutes.',
   },
-  store: new RedisStore({
-    prefix: 'auth:',
-    sendCommand: async (...args) => {
-      // If Redis is not ready yet, return empty string to prevent store initialization errors
-      if (!redisClient.isReady) {
-        return '';
-      }
-      return await redisClient.sendCommand(args);
-    },
-  }),
+  ...(redisStore ? { store: redisStore } : {}),
 });
 
 module.exports = {

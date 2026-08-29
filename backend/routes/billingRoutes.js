@@ -8,11 +8,29 @@ const { jwtAuthMiddleware } = require('../middlewares/authMiddleware');
 const { getRazorpayClient } = require('../services/payments/razorpayClient');
 const { verifyCheckoutSignature } = require('../services/payments/razorpaySignatures');
 const { reconcileSubscription } = require('../services/subscriptionLifecycleService');
+const { resolveOrganizationForUser } = require('../services/organizationAccessService');
 
 const PAID_PLAN_TOTAL_COUNTS = {
   monthly: 120,
   yearly: 10,
 };
+
+async function getBillingAccount(req) {
+  const requestedOrganizationId = req.headers['x-organization-id'] || req.body?.organizationId || req.query?.organizationId;
+  const resolved = await resolveOrganizationForUser(req.user, requestedOrganizationId || null);
+  if (resolved) {
+    if (!resolved.isSystemAdmin && resolved.membership?.role !== 'OWNER') return { forbidden: true };
+    const restaurant = await Restaurant.findOne({ organization: resolved.organization._id, lifecycleStatus: 'ACTIVE' })
+      .sort({ createdAt: 1 }).populate('user', 'name email phone');
+    const subscription = await Subscription.findOne({ organization: resolved.organization._id });
+    return { organization: resolved.organization, restaurant, subscription };
+  }
+
+  // Temporary fallback for databases that have not run migrate:organizations.
+  const restaurant = await Restaurant.findOne({ user: req.user.id }).populate('user', 'name email phone');
+  const subscription = restaurant ? await Subscription.findOne({ restaurant: restaurant._id }) : null;
+  return { organization: null, restaurant, subscription };
+}
 
 /**
  * GET /billing/plans
@@ -44,7 +62,9 @@ router.get('/plans', async (req, res) => {
 router.get('/my-subscription', jwtAuthMiddleware, async (req, res) => {
   try {
     // 1. Find the restaurant owned by the authenticated user
-    const restaurant = await Restaurant.findOne({ user: req.user.id });
+    const account = await getBillingAccount(req);
+    if (account.forbidden) return res.status(403).json({ success: false, message: 'Only an organization owner can manage billing.' });
+    const restaurant = account.restaurant;
     if (!restaurant) {
       return res.status(404).json({
         success: false,
@@ -54,9 +74,9 @@ router.get('/my-subscription', jwtAuthMiddleware, async (req, res) => {
 
     // 2. Find the subscription linked to that restaurant
     //    .populate('plan') replaces the plan ObjectId with the full Plan document
-    let subscription = await Subscription.findOne({ restaurant: restaurant._id });
+    let subscription = account.subscription;
     await reconcileSubscription(subscription);
-    subscription = await Subscription.findOne({ restaurant: restaurant._id })
+    subscription = await Subscription.findById(subscription?._id)
       .select('-providerPlanId -providerSubId -pendingProviderSubId')
       .populate('plan', '-razorpayPlanId')
       .populate('pendingPlan', '-razorpayPlanId')
@@ -103,8 +123,9 @@ router.post('/subscription', jwtAuthMiddleware, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Restaurant access required.' });
     }
 
-    const restaurant = await Restaurant.findOne({ user: req.user.id })
-      .populate('user', 'name email phone');
+    const account = await getBillingAccount(req);
+    if (account.forbidden) return res.status(403).json({ success: false, message: 'Only an organization owner can manage billing.' });
+    const restaurant = account.restaurant;
     if (!restaurant) {
       return res.status(404).json({ success: false, message: 'No restaurant found for this account.' });
     }
@@ -129,7 +150,7 @@ router.post('/subscription', jwtAuthMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Unsupported billing interval.' });
     }
 
-    const subscription = await Subscription.findOne({ restaurant: restaurant._id });
+    const subscription = account.subscription;
     if (!subscription) {
       return res.status(404).json({ success: false, message: 'No subscription found. Contact support.' });
     }
@@ -167,6 +188,7 @@ router.post('/subscription', jwtAuthMiddleware, async (req, res) => {
         customer_notify: true,
         notes: {
           restaurantId: restaurant._id.toString(),
+          organizationId: account.organization?._id?.toString() || '',
           foodyPlanId: plan._id.toString(),
         },
       };
@@ -231,10 +253,9 @@ router.post('/subscription/change-plan', jwtAuthMiddleware, async (req, res) => 
       return res.status(400).json({ success: false, message: 'A valid target plan is required.' });
     }
 
-    const [restaurant, targetPlan] = await Promise.all([
-      Restaurant.findOne({ user: req.user.id }),
-      Plan.findById(req.body.planId),
-    ]);
+    const [account, targetPlan] = await Promise.all([getBillingAccount(req), Plan.findById(req.body.planId)]);
+    if (account.forbidden) return res.status(403).json({ success: false, message: 'Only an organization owner can manage billing.' });
+    const restaurant = account.restaurant;
     if (!restaurant) {
       return res.status(404).json({ success: false, message: 'No restaurant found for this account.' });
     }
@@ -242,7 +263,7 @@ router.post('/subscription/change-plan', jwtAuthMiddleware, async (req, res) => 
       return res.status(400).json({ success: false, message: 'Choose an available paid plan.' });
     }
 
-    const subscription = await Subscription.findOne({ restaurant: restaurant._id });
+    const subscription = account.subscription;
     if (!subscription) {
       return res.status(404).json({ success: false, message: 'No subscription found. Contact support.' });
     }
@@ -291,10 +312,9 @@ router.post('/subscription/change-plan/cancel', jwtAuthMiddleware, async (req, r
     if (req.user.role !== 'restaurant') {
       return res.status(403).json({ success: false, message: 'Restaurant access required.' });
     }
-    const restaurant = await Restaurant.findOne({ user: req.user.id });
-    const subscription = restaurant
-      ? await Subscription.findOne({ restaurant: restaurant._id })
-      : null;
+    const account = await getBillingAccount(req);
+    if (account.forbidden) return res.status(403).json({ success: false, message: 'Only an organization owner can manage billing.' });
+    const subscription = account.subscription;
     if (!subscription?.scheduledPlan || !subscription.providerSubId) {
       return res.status(409).json({ success: false, message: 'There is no scheduled plan change to cancel.' });
     }
@@ -330,14 +350,16 @@ router.post('/subscription/verify', jwtAuthMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Incomplete Checkout verification data.' });
     }
 
-    const restaurant = await Restaurant.findOne({ user: req.user.id });
+    const account = await getBillingAccount(req);
+    if (account.forbidden) return res.status(403).json({ success: false, message: 'Only an organization owner can manage billing.' });
+    const restaurant = account.restaurant;
     if (!restaurant) {
       return res.status(404).json({ success: false, message: 'No restaurant found for this account.' });
     }
 
-    const subscription = await Subscription.findOne({ restaurant: restaurant._id });
+    const subscription = account.subscription;
     if (!subscription || subscription.pendingProviderSubId !== providerSubscriptionId) {
-      return res.status(403).json({ success: false, message: 'This Checkout does not belong to your restaurant.' });
+      return res.status(403).json({ success: false, message: 'This Checkout does not belong to your organization.' });
     }
 
     const isValid = verifyCheckoutSignature({
@@ -379,12 +401,14 @@ router.post('/subscription/cancel', jwtAuthMiddleware, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Restaurant access required.' });
     }
 
-    const restaurant = await Restaurant.findOne({ user: req.user.id });
+    const account = await getBillingAccount(req);
+    if (account.forbidden) return res.status(403).json({ success: false, message: 'Only an organization owner can manage billing.' });
+    const restaurant = account.restaurant;
     if (!restaurant) {
       return res.status(404).json({ success: false, message: 'No restaurant found for this account.' });
     }
 
-    const subscription = await Subscription.findOne({ restaurant: restaurant._id });
+    const subscription = account.subscription;
     if (!subscription) {
       return res.status(404).json({ success: false, message: 'No subscription found. Contact support.' });
     }

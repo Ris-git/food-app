@@ -4,6 +4,7 @@ const menuController = require("../controllers/menuController");
 const { jwtAuthMiddleware } = require("../middlewares/authMiddleware");
 const authorize = require("../middlewares/authorizeMiddleware");
 const { permissions } = require("../config/roles");
+const { requireRestaurant, RESTAURANT_PERMISSIONS } = require("../services/organizationAccessService");
 
 // Public Route: Fetch menu for a specific store
 router.get("/restaurant/:restaurantId", menuController.getMenuByRestaurant);
@@ -13,6 +14,7 @@ router.post(
   "/",
   jwtAuthMiddleware,
   authorize([permissions.CREATE_MENU, permissions.MANAGE_MENU, permissions.ADMIN_ALL]),
+  requireRestaurant(RESTAURANT_PERMISSIONS.MANAGE_MENU),
   menuController.addMenuItem
 );
 
@@ -20,6 +22,7 @@ router.post(
   "/import",
   jwtAuthMiddleware,
   authorize([permissions.CREATE_MENU, permissions.MANAGE_MENU, permissions.ADMIN_ALL]),
+  requireRestaurant(RESTAURANT_PERMISSIONS.MANAGE_MENU),
   menuController.importMenuItems
 );
 

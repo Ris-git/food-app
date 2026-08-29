@@ -86,10 +86,22 @@ const restaurantSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
+      default: null,
+      index: true,
+    },
+    lifecycleStatus: {
+      type: String,
+      enum: ['ACTIVE', 'ARCHIVED'],
+      default: 'ACTIVE',
+    },
   },
   { timestamps: true }
 );
 
 restaurantSchema.index({ location: '2dsphere' });
+restaurantSchema.index({ organization: 1, lifecycleStatus: 1 });
 
 module.exports = mongoose.model('Restaurant', restaurantSchema);

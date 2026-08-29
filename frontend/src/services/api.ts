@@ -23,6 +23,10 @@ export async function apiRequest<T = any>(
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
+  const organizationId = localStorage.getItem('activeOrganizationId');
+  const restaurantId = localStorage.getItem('activeRestaurantId');
+  if (organizationId) headers['X-Organization-Id'] = organizationId;
+  if (restaurantId) headers['X-Restaurant-Id'] = restaurantId;
 
   try {
     const response = await fetch(`${BASE_URL}${endpoint}`, {

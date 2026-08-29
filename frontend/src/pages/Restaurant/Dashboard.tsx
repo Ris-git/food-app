@@ -3,6 +3,7 @@ import { restaurantDashboardService, type DashboardResponse } from '../../featur
 import Button from '../../components/Button';
 import { DashboardTools } from '../../features/restaurant/components/DashboardTools';
 import type { Restaurant } from '../../types';
+import { useOrganization } from '../../features/organization/context/OrganizationContext';
 
 
 interface DashboardProps {
@@ -20,10 +21,11 @@ export const RestaurantDashboard: React.FC<DashboardProps> = ({ onNavigateBillin
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { activeRestaurant } = useOrganization();
 
   useEffect(() => {
     fetchDashboard();
-  }, []);
+  }, [activeRestaurant?._id, activeRestaurant?.id]);
 
   const fetchDashboard = async (silent = false) => {
     try {

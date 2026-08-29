@@ -6,6 +6,9 @@ const MenuItem = require('../models/MenuItem');
 const User = require('../models/User');
 const Plan = require('../models/Plan');
 const Subscription = require('../models/Subscription');
+const RestaurantMembership = require('../models/RestaurantMembership');
+const Organization = require('../models/Organization');
+const { ensureOwnerOrganization } = require('../services/organizationProvisioningService');
 const { jwtAuthMiddleware } = require('../middlewares/authMiddleware');
 
 // Helper role check for Admin / SuperAdmin
@@ -75,6 +78,11 @@ router.patch('/applications/:id/approve', jwtAuthMiddleware, verifyAdminAccess, 
       });
     }
 
+    const provisioned = await ensureOwnerOrganization({
+      userId: application.user,
+      suggestedName: application.franchiseName || application.restaurantName,
+    });
+
     // 1. Mark Application as Approved
     application.status = 'approved';
     application.adminRemarks = req.body.adminRemarks || 'Approved by Admin';
@@ -93,9 +101,16 @@ router.patch('/applications/:id/approve', jwtAuthMiddleware, verifyAdminAccess, 
       operatingHours: application.operatingHours,
       mealSlots: application.mealSlots,
       user: application.user,
+      organization: provisioned.organization._id,
       operationalStatus: 'OPEN',
     });
     await newRestaurant.save();
+    await RestaurantMembership.findOneAndUpdate(
+      { restaurant: newRestaurant._id, user: application.user },
+      { $setOnInsert: { organization: provisioned.organization._id, role: 'OWNER', status: 'ACTIVE' } },
+      { upsert: true, setDefaultsOnInsert: true }
+    );
+    await Organization.updateOne({ _id: provisioned.organization._id }, { $inc: { 'usage.restaurantCount': 1 } });
 
     // 3. Seed MenuItems if staged menu items exist
     let seededMenuItemsCount = 0;
@@ -117,14 +132,18 @@ router.patch('/applications/:id/approve', jwtAuthMiddleware, verifyAdminAccess, 
 
     // 5. Start the restaurant on the configured trial plan. The referenced
     // plan is the restaurant's real entitlement source throughout the trial.
-    const trialEndsAt = new Date(Date.now() + trialPlan.trialDays * 24 * 60 * 60 * 1000);
-    await Subscription.create({
-      restaurant: newRestaurant._id,
-      plan: trialPlan._id,
-      status: 'trial',
-      provider: 'none',
-      trialEndsAt,
-    });
+    const existingSubscription = await Subscription.findOne({ organization: provisioned.organization._id });
+    const trialEndsAt = existingSubscription?.trialEndsAt || new Date(Date.now() + trialPlan.trialDays * 24 * 60 * 60 * 1000);
+    if (!existingSubscription) {
+      await Subscription.create({
+        organization: provisioned.organization._id,
+        restaurant: newRestaurant._id,
+        plan: trialPlan._id,
+        status: 'trial',
+        provider: 'none',
+        trialEndsAt,
+      });
+    }
 
     console.log(`Trial subscription created for '${newRestaurant.name}' — expires ${trialEndsAt.toDateString()}`);
 

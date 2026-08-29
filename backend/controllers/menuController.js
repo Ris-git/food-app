@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const MenuItem = require("../models/MenuItem");
 const Restaurant = require("../models/Restaurant");
 const { checkEntitlement, FEATURES } = require("../services/entitlementService");
+const { resolveRestaurantAccess, RESTAURANT_PERMISSIONS } = require("../services/organizationAccessService");
 
 // Add a Menu Item to a specific Restaurant
 exports.addMenuItem = async (req, res) => {
@@ -13,18 +14,16 @@ exports.addMenuItem = async (req, res) => {
     }
 
     // Check if the target restaurant exists
-    const restaurant = await Restaurant.findById(restaurantId);
+    const restaurant = req.restaurant?._id?.toString() === restaurantId
+      ? req.restaurant
+      : null;
     if (!restaurant) {
       return res.status(404).json({ success: false, message: "Target restaurant not found" });
     }
 
     // Authorization check: Verify ownership
-    if (restaurant.user?.toString() !== req.user.id && !["admin", "superAdmin"].includes(req.user.role)) {
-      return res.status(403).json({ success: false, message: "Unauthorized to add items to this restaurant" });
-    }
-
     const currentCount = await MenuItem.countDocuments({ restaurant: restaurantId });
-    const entitlement = await checkEntitlement(restaurantId, FEATURES.ADD_MENU_ITEM, { currentCount });
+    const entitlement = await checkEntitlement(req.organization?._id || restaurantId, FEATURES.ADD_MENU_ITEM, { currentCount, organizationId: req.organization?._id, restaurantId });
     if (!entitlement.allowed) {
       return res.status(403).json({ success: false, message: entitlement.reason });
     }
@@ -53,8 +52,7 @@ exports.addMenuItem = async (req, res) => {
 // Import validated menu rows parsed from CSV/XLSX by the frontend.
 exports.importMenuItems = async (req, res) => {
   try {
-    const restaurant = await Restaurant.findOne({ user: req.user.id });
-    if (!restaurant) return res.status(404).json({ success: false, message: "Restaurant not found" });
+    const restaurant = req.restaurant;
 
     const items = Array.isArray(req.body.items) ? req.body.items : [];
     if (items.length === 0 || items.length > 200) {
@@ -62,12 +60,14 @@ exports.importMenuItems = async (req, res) => {
     }
 
     const currentCount = await MenuItem.countDocuments({ restaurant: restaurant._id });
-    const importEntitlement = await checkEntitlement(restaurant._id, FEATURES.IMPORT_MENU);
+    const importEntitlement = await checkEntitlement(req.organization?._id || restaurant._id, FEATURES.IMPORT_MENU, { organizationId: req.organization?._id, restaurantId: restaurant._id });
     if (!importEntitlement.allowed) {
       return res.status(403).json({ success: false, message: importEntitlement.reason });
     }
-    const entitlement = await checkEntitlement(restaurant._id, FEATURES.ADD_MENU_ITEM, {
+    const entitlement = await checkEntitlement(req.organization?._id || restaurant._id, FEATURES.ADD_MENU_ITEM, {
       currentCount: currentCount + items.length - 1,
+      organizationId: req.organization?._id,
+      restaurantId: restaurant._id,
     });
     if (!entitlement.allowed) {
       return res.status(403).json({ success: false, message: entitlement.reason });
@@ -135,7 +135,8 @@ exports.updateMenuItem = async (req, res) => {
       return res.status(404).json({ success: false, message: "Menu item not found" });
     }
 
-    if (menuItem.restaurant?.user?.toString() !== req.user.id && !["admin", "superAdmin"].includes(req.user.role)) {
+    const updateAccess = await resolveRestaurantAccess(req.user, { restaurantId: menuItem.restaurant?._id, permission: RESTAURANT_PERMISSIONS.MANAGE_MENU });
+    if (!updateAccess) {
       return res.status(403).json({ success: false, message: "Unauthorized to update this menu item" });
     }
 
@@ -166,7 +167,8 @@ exports.deleteMenuItem = async (req, res) => {
       return res.status(404).json({ success: false, message: "Menu item not found" });
     }
 
-    if (menuItem.restaurant?.user?.toString() !== req.user.id && !["admin", "superAdmin"].includes(req.user.role)) {
+    const deleteAccess = await resolveRestaurantAccess(req.user, { restaurantId: menuItem.restaurant?._id, permission: RESTAURANT_PERMISSIONS.MANAGE_MENU });
+    if (!deleteAccess) {
       return res.status(403).json({ success: false, message: "Unauthorized to delete this menu item" });
     }
 

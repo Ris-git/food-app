@@ -79,6 +79,8 @@ export type Restaurant = {
   id: string;
   _id?: string;
   userId: string;
+  organization?: string;
+  accessRole?: RestaurantRole;
   name: string;
   franchiseName?: string;
   logoUrl?: string;
@@ -92,6 +94,18 @@ export type Restaurant = {
   operationalStatus: 'OPEN' | 'CLOSED' | 'BUSY' | 'TEMPORARILY_UNAVAILABLE';
   createdAt?: string;
   updatedAt?: string;
+};
+
+export type OrganizationRole = 'OWNER' | 'ADMIN' | 'STAFF';
+export type RestaurantRole = 'OWNER' | 'MANAGER' | 'KITCHEN' | 'CASHIER' | 'ANALYST';
+
+export type Organization = {
+  _id: string;
+  name: string;
+  status: 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED';
+  membershipRole: OrganizationRole;
+  usage: { restaurantCount: number; staffSeats: number };
+  restaurants: Restaurant[];
 };
 
 // ─── Billing & Subscription Types ─────────────────────────────────────────────
@@ -129,6 +143,7 @@ export type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'cancelled' |
 export type Subscription = {
   _id: string;
   restaurant: string;
+  organization?: string;
   plan: Plan;             // populated from DB
   status: SubscriptionStatus;
   provider: 'razorpay' | 'none';

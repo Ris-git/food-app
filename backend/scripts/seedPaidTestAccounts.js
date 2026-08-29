@@ -4,6 +4,9 @@ const User = require('../models/User');
 const Restaurant = require('../models/Restaurant');
 const Plan = require('../models/Plan');
 const Subscription = require('../models/Subscription');
+const Organization = require('../models/Organization');
+const RestaurantMembership = require('../models/RestaurantMembership');
+const { ensureOwnerOrganization } = require('../services/organizationProvisioningService');
 
 const TEST_PASSWORD = 'FoodyQA!2026#GrowthPro';
 const fixtures = [
@@ -66,7 +69,8 @@ async function upsertFixture(fixture) {
   }
   await user.save();
 
-  let restaurant = await Restaurant.findOne({ user: user._id });
+  const provisioned = await ensureOwnerOrganization({ userId: user._id, suggestedName: fixture.restaurantName });
+  let restaurant = await Restaurant.findOne({ user: user._id, lifecycleStatus: 'ACTIVE' });
   if (!restaurant) {
     restaurant = await Restaurant.create({
       name: fixture.restaurantName,
@@ -75,13 +79,30 @@ async function upsertFixture(fixture) {
       phone: fixture.phone,
       cuisine: ['Indian', 'Test Kitchen'],
       user: user._id,
+      organization: provisioned.organization._id,
       operationalStatus: 'OPEN',
     });
   }
+  if (!restaurant.organization) {
+    restaurant.organization = provisioned.organization._id;
+    await restaurant.save();
+  }
+  await RestaurantMembership.findOneAndUpdate(
+    { restaurant: restaurant._id, user: user._id },
+    { $setOnInsert: { organization: provisioned.organization._id, role: 'OWNER', status: 'ACTIVE' } },
+    { upsert: true, setDefaultsOnInsert: true }
+  );
+  await Organization.updateOne(
+    { _id: provisioned.organization._id },
+    { $set: { 'usage.restaurantCount': await Restaurant.countDocuments({ organization: provisioned.organization._id, lifecycleStatus: 'ACTIVE' }) } }
+  );
 
+  const existingSubscription = await Subscription.findOne({ $or: [{ organization: provisioned.organization._id }, { restaurant: restaurant._id }] });
   await Subscription.findOneAndUpdate(
-    { restaurant: restaurant._id },
+    { _id: existingSubscription?._id || new mongoose.Types.ObjectId() },
     {
+      organization: provisioned.organization._id,
+      restaurant: restaurant._id,
       plan: plan._id,
       status: fixture.subscriptionStatus,
       provider: 'none',
