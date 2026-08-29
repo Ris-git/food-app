@@ -6,6 +6,10 @@ if (typeof global.crypto === 'undefined') {
 }
 const express = require('express');
 const app = express();
+// Render terminates HTTPS at its reverse proxy and forwards the original
+// client address. Trust exactly that first proxy so express-rate-limit can
+// safely identify clients from X-Forwarded-For.
+app.set('trust proxy', 1);
 const cookieParser = require('cookie-parser');
 const razorpayWebhookRoutes = require('./routes/razorpayWebhookRoutes');
 

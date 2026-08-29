@@ -8,7 +8,7 @@ const db = mongoose.connection;
 
 
 db.on('connected', () => {
-    console.log('Connected to food app server!!');
+    console.log(`Connected to MongoDB database: ${db.name}`);
     
 });
 
@@ -21,4 +21,3 @@ db.on('disconnected', () => {
 });
 
 module.exports = db;
-
