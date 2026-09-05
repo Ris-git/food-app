@@ -21,8 +21,13 @@ export type PublicMenuItem = {
   isAvailable: boolean;
 };
 
+export type DiscoveryCategory = {
+  slug: string;
+  name: string;
+};
+
 export const discoveryService = {
-  async restaurants(filters: { location?: string; cuisine?: string; search?: string } = {}) {
+  async restaurants(filters: { location?: string; cuisine?: string; category?: string; search?: string } = {}) {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => value && params.set(key, value));
     return apiRequest(`/public/restaurants${params.size ? `?${params}` : ''}`, { method: 'GET' }) as Promise<{ success: boolean; restaurants: PublicRestaurant[] }>;
@@ -30,4 +35,5 @@ export const discoveryService = {
   restaurant: (id: string) => apiRequest(`/public/restaurants/${id}`, { method: 'GET' }) as Promise<{ success: boolean; restaurant: PublicRestaurant }>,
   menu: (id: string) => apiRequest(`/public/restaurants/${id}/menu`, { method: 'GET' }) as Promise<{ success: boolean; menuItems: PublicMenuItem[] }>,
   cuisines: () => apiRequest('/public/cuisines', { method: 'GET' }) as Promise<{ success: boolean; cuisines: string[] }>,
+  categories: () => apiRequest('/public/categories', { method: 'GET' }) as Promise<{ success: boolean; categories: DiscoveryCategory[] }>,
 };

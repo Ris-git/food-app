@@ -1,38 +1,45 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { discoveryService, type PublicRestaurant } from '../../features/discovery/services/discoveryService';
+import { discoveryService, type DiscoveryCategory, type PublicRestaurant } from '../../features/discovery/services/discoveryService';
 
-const fallbackCuisines = ['Indian', 'Chinese', 'Pizza', 'Biryani', 'Dessert', 'Beverage'];
+const fallbackCategories: DiscoveryCategory[] = [
+  { slug: 'vegetarian', name: 'Vegetarian' },
+  { slug: 'non-vegetarian', name: 'Non-Vegetarian' },
+  { slug: 'biryani', name: 'Biryani' },
+  { slug: 'north-indian', name: 'North Indian' },
+  { slug: 'desserts', name: 'Desserts' },
+  { slug: 'beverages', name: 'Beverages' },
+  { slug: 'snacks', name: 'Snacks' },
+];
 
 export default function Discovery({ landing = false }: { landing?: boolean }) {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [location, setLocation] = useState(params.get('location') || localStorage.getItem('deliveryLocation') || '');
   const [search, setSearch] = useState(params.get('search') || '');
-  const [selectedCuisine, setSelectedCuisine] = useState(params.get('cuisine') || '');
+  const [selectedCategory, setSelectedCategory] = useState(params.get('category') || '');
   const [restaurants, setRestaurants] = useState<PublicRestaurant[]>([]);
-  const [cuisines, setCuisines] = useState<string[]>([]);
+  const [categories, setCategories] = useState<DiscoveryCategory[]>(fallbackCategories);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    discoveryService.cuisines().then((response) => setCuisines(response.cuisines)).catch(() => setCuisines([]));
+    discoveryService.categories().then((response) => setCategories(response.categories)).catch(() => setCategories(fallbackCategories));
   }, []);
   useEffect(() => {
-    discoveryService.restaurants({ location, search, cuisine: selectedCuisine })
+    discoveryService.restaurants({ location, search, category: selectedCategory })
       .then((response) => { setRestaurants(response.restaurants); setError(''); })
       .catch((reason: Error) => setError(reason.message))
       .finally(() => setLoading(false));
-  }, [location, search, selectedCuisine]);
+  }, [location, search, selectedCategory]);
 
-  const availableCuisines = useMemo(() => cuisines.length ? cuisines : fallbackCuisines, [cuisines]);
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     localStorage.setItem('deliveryLocation', location);
     const next = new URLSearchParams();
     if (location) next.set('location', location);
     if (search) next.set('search', search);
-    if (selectedCuisine) next.set('cuisine', selectedCuisine);
+    if (selectedCategory) next.set('category', selectedCategory);
     navigate(`/restaurants?${next}`);
   };
 
@@ -51,8 +58,8 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
     <section className="discovery-section">
       <div className="section-heading"><div><p className="eyebrow">EXPLORE</p><h2>What are you craving?</h2></div>{!landing && <form onSubmit={submit} className="compact-search"><input placeholder="Area or city" value={location} onChange={(event) => setLocation(event.target.value)} /><input placeholder="Search" value={search} onChange={(event) => setSearch(event.target.value)} /><button>Search</button></form>}</div>
       <div className="cuisine-row">
-        <button className={!selectedCuisine ? 'active' : ''} onClick={() => setSelectedCuisine('')}>All</button>
-        {availableCuisines.map((cuisine) => <button key={cuisine} className={selectedCuisine === cuisine ? 'active' : ''} onClick={() => setSelectedCuisine(cuisine)}>{cuisine}</button>)}
+        <button className={!selectedCategory ? 'active' : ''} onClick={() => setSelectedCategory('')}>All</button>
+        {categories.map((category) => <button key={category.slug} className={selectedCategory === category.slug ? 'active' : ''} onClick={() => setSelectedCategory(category.slug)}>{category.name}</button>)}
       </div>
     </section>
 

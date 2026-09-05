@@ -23,6 +23,7 @@
     "reconcile:subscriptions": "node scripts/reconcileSubscriptions.js",
     "seed:paid-test-accounts": "node scripts/seedPaidTestAccounts.js",
     "seed:test-accounts": "node scripts/seedPaidTestAccounts.js",
+    "seed:test-menus": "node scripts/seedTestMenus.js",
     "seed:superadmin": "node scripts/seedSuperAdmin.js",
     "seed:admin-test-accounts": "node scripts/seedAdminTestAccounts.js",
     "migrate:organizations": "node scripts/backfillOrganizations.js",
