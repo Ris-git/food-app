@@ -8,6 +8,7 @@ const Restaurant = require('../models/Restaurant');
 const Subscription = require('../models/Subscription');
 const User = require('../models/User');
 const Order = require('../models/Order');
+const RestaurantApplication = require('../models/RestaurantApplication');
 const { jwtAuthMiddleware } = require('../middlewares/authMiddleware');
 const { checkEntitlement, FEATURES } = require('../services/entitlementService');
 const {
@@ -60,13 +61,14 @@ router.get('/:organizationId/overview', jwtAuthMiddleware, requireOrganization()
   try {
     const { restaurants } = await getAccessibleRestaurants(req.user, req.organization._id);
     const restaurantIds = restaurants.map((restaurant) => restaurant._id);
-    const [subscription, orderSummary, staffCount] = await Promise.all([
+    const [subscription, orderSummary, staffCount, applications] = await Promise.all([
       subscriptionForOrganization(req.organization._id),
       Order.aggregate([
         { $match: { restaurant: { $in: restaurantIds } } },
         { $group: { _id: null, orders: { $sum: 1 }, revenue: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, '$totalPrice', 0] } } } },
       ]),
       OrganizationMembership.countDocuments({ organization: req.organization._id, role: { $ne: 'OWNER' }, status: 'ACTIVE' }),
+      RestaurantApplication.find({ organization: req.organization._id, applicationType: 'ADDITIONAL_LOCATION' }).sort({ createdAt: -1 }).lean(),
     ]);
     return res.json({
       success: true,
@@ -79,6 +81,7 @@ router.get('/:organizationId/overview', jwtAuthMiddleware, requireOrganization()
         revenue: orderSummary[0]?.revenue || 0,
         subscription,
         plan: subscription?.plan || null,
+        restaurantApplications: applications,
       },
     });
   } catch (error) {
@@ -91,7 +94,11 @@ router.post('/:organizationId/restaurants', jwtAuthMiddleware, requireOrganizati
   try {
     const subscription = await subscriptionForOrganization(req.organization._id);
     if (!subscription?.plan) return res.status(409).json({ success: false, message: 'Organization subscription is not configured.' });
-    const currentCount = await Restaurant.countDocuments({ organization: req.organization._id, lifecycleStatus: 'ACTIVE' });
+    const [activeCount, pendingCount] = await Promise.all([
+      Restaurant.countDocuments({ organization: req.organization._id, lifecycleStatus: 'ACTIVE' }),
+      RestaurantApplication.countDocuments({ organization: req.organization._id, applicationType: 'ADDITIONAL_LOCATION', status: 'pending' }),
+    ]);
+    const currentCount = activeCount + pendingCount;
     const entitlement = await checkEntitlement(req.organization._id, FEATURES.CREATE_RESTAURANT, { currentCount, organizationId: req.organization._id });
     if (!entitlement.allowed) return res.status(403).json({ success: false, message: entitlement.reason });
 
@@ -99,24 +106,23 @@ router.post('/:organizationId/restaurants', jwtAuthMiddleware, requireOrganizati
     if (!reservation) return res.status(409).json({ success: false, message: 'Restaurant limit was reached by another request.' });
     reserved = true;
 
-    const restaurant = await Restaurant.create({
-      name: String(req.body.name || '').trim(),
+    const name = String(req.body.name || '').trim();
+    const address = String(req.body.address || '').trim();
+    const phone = String(req.body.phone || '').trim();
+    if (!name || !address || !phone) throw new Error('Restaurant name, address, and phone are required.');
+    const application = await RestaurantApplication.create({
+      user: req.user.id,
+      organization: req.organization._id,
+      applicationType: 'ADDITIONAL_LOCATION',
+      restaurantName: name,
       franchiseName: String(req.body.franchiseName || '').trim(),
-      phone: String(req.body.phone || '').trim(),
-      cuisine: Array.isArray(req.body.cuisine) ? req.body.cuisine : [],
-      address: String(req.body.address || '').trim(),
-      formattedAddress: String(req.body.formattedAddress || req.body.address || '').trim(),
-      organization: req.organization._id,
-      user: req.user.id,
-      operationalStatus: 'CLOSED',
+      phone,
+      cuisine: Array.isArray(req.body.cuisine) ? req.body.cuisine.join(', ') : String(req.body.cuisine || 'Other'),
+      address,
+      formattedAddress: String(req.body.formattedAddress || address).trim(),
+      status: 'pending',
     });
-    await RestaurantMembership.create({
-      organization: req.organization._id,
-      restaurant: restaurant._id,
-      user: req.user.id,
-      role: 'OWNER',
-    });
-    return res.status(201).json({ success: true, restaurant });
+    return res.status(201).json({ success: true, application, message: 'Restaurant submitted for admin approval.' });
   } catch (error) {
     if (reserved) await Organization.updateOne({ _id: req.organization._id, 'usage.restaurantCount': { $gt: 0 } }, { $inc: { 'usage.restaurantCount': -1 } });
     return res.status(400).json({ success: false, message: error.message || 'Failed to create restaurant.' });
@@ -173,6 +179,10 @@ router.post('/:organizationId/invitations', jwtAuthMiddleware, requireOrganizati
     const email = String(req.body.email || '').trim().toLowerCase();
     const assignments = Array.isArray(req.body.restaurantAssignments) ? req.body.restaurantAssignments : [];
     if (!email || !assignments.length) return res.status(400).json({ success: false, message: 'Email and at least one restaurant assignment are required.' });
+    const invitingUser = await User.findById(req.user.id).select('email').lean();
+    if (invitingUser?.email && invitingUser.email.trim().toLowerCase() === email) {
+      return res.status(409).json({ success: false, message: 'You cannot invite your own account.' });
+    }
 
     const validRestaurants = await Restaurant.countDocuments({
       _id: { $in: assignments.map((item) => item.restaurant) },
@@ -207,7 +217,7 @@ router.post('/:organizationId/invitations', jwtAuthMiddleware, requireOrganizati
       expiresAt: new Date(Date.now() + 7 * 86400000),
     });
     const baseUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
-    const inviteUrl = `${baseUrl}/?staffInvite=${token}`;
+    const inviteUrl = `${baseUrl}/invitations/accept?staffInvite=${token}`;
     if (process.env.DISABLE_EMAIL_DELIVERY !== 'true') {
       try {
         await sendEmail({ to: email, subject: `Join ${req.organization.name} on Foody`, text: `Accept your invitation: ${inviteUrl}` });

@@ -57,6 +57,8 @@ export type StagedMenuItem = {
 export type RestaurantApplication = {
   id: string;
   userId: string;
+  organization?: string;
+  applicationType?: 'INITIAL' | 'ADDITIONAL_LOCATION';
   restaurantName: string;
   franchiseName?: string;
   logoUrl?: string;

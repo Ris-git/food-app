@@ -12,7 +12,14 @@ export type MenuItemInput = {
 export type Analytics = {
   orderCount: number;
   deliveredOrders: number;
+  cancelledOrders: number;
+  grossOrderValue: number;
   revenue: number;
+  collectedRevenue: number;
+  refundedAmount: number;
+  averageOrderValue: number;
+  cancellationRate: number;
+  dailyOrders: Array<{ date: string; orders: number; revenue: number }>;
   popularItems: Array<{ menuItemId: string; title: string; quantity: number; revenue: number }>;
   from: string;
   to: string;

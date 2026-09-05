@@ -45,6 +45,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const mediaRoutes = require('./routes/mediaRoutes');
 const billingRoutes = require('./routes/billingRoutes');
 const organizationRoutes = require('./routes/organizationRoutes');
+const publicRoutes = require('./routes/publicRoutes');
 
 app.use('/menu', menuRoutes);
 app.use('/restaurant', restaurantRoutes);
@@ -53,6 +54,7 @@ app.use('/admin', adminRoutes);
 app.use('/media', mediaRoutes);
 app.use('/billing', billingRoutes);
 app.use('/organizations', organizationRoutes);
+app.use('/public', publicRoutes);
 
 
 

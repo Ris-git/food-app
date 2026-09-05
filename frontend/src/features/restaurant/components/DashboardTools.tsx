@@ -178,11 +178,13 @@ export const DashboardTools: React.FC<Props> = ({ data, onRefresh, onRestaurantU
         </div>
         {!analyticsEnabled ? <p style={{ color: '#64748B' }}>Analytics requires Growth or Pro.</p> : analyticsError ? <p style={{ color: '#B91C1C' }}>{analyticsError}</p> : (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginTop: '18px' }}>
-              <Metric label="Orders" value={analytics?.orderCount || 0} /><Metric label="Delivered" value={analytics?.deliveredOrders || 0} /><Metric label="Revenue" value={`₹${analytics?.revenue || 0}`} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: '12px', marginTop: '18px' }}>
+              <Metric label="Orders" value={analytics?.orderCount || 0} /><Metric label="Delivered" value={analytics?.deliveredOrders || 0} /><Metric label="Cancelled" value={analytics?.cancelledOrders || 0} /><Metric label="Gross order value" value={`₹${analytics?.grossOrderValue || 0}`} /><Metric label="Collected revenue" value={`₹${analytics?.collectedRevenue || 0}`} /><Metric label="Average order" value={`₹${analytics?.averageOrderValue || 0}`} /><Metric label="Cancellation rate" value={`${analytics?.cancellationRate || 0}%`} /><Metric label="Refunded" value={`₹${analytics?.refundedAmount || 0}`} />
             </div>
             <h4>Popular items</h4>
             {analytics?.popularItems.length ? analytics.popularItems.map((item) => <p key={item.menuItemId} style={{ margin: '7px 0' }}>{item.title} — {item.quantity} sold</p>) : <p style={{ color: '#64748B' }}>No delivered orders in this date range.</p>}
+            <h4>Orders by day</h4>
+            {analytics?.dailyOrders?.length ? <div style={{ display: 'grid', gap: 7 }}>{analytics.dailyOrders.map((day) => <div key={day.date} style={{ display: 'grid', gridTemplateColumns: '110px 1fr auto', gap: 10, alignItems: 'center' }}><span>{day.date}</span><span style={{ height: 8, borderRadius: 999, background: '#E2E8F0', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: `${Math.max(5, (day.orders / Math.max(...analytics.dailyOrders.map((entry) => entry.orders))) * 100)}%`, background: '#10B981' }} /></span><strong>{day.orders} · ₹{day.revenue}</strong></div>)}</div> : <p style={{ color: '#64748B' }}>No order trend data in this date range.</p>}
           </>
         )}
       </section>

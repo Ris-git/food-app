@@ -36,6 +36,19 @@ const restaurantApplicationSchema = new mongoose.Schema(
       ref: 'User',
       required: [true, 'User ID is required'],
     },
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
+      default: null,
+      index: true,
+    },
+    applicationType: {
+      type: String,
+      enum: ['INITIAL', 'ADDITIONAL_LOCATION'],
+      default: 'INITIAL',
+    },
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    reviewedAt: { type: Date, default: null },
     restaurantName: {
       type: String,
       required: [true, 'Restaurant name is required'],
@@ -117,5 +130,6 @@ const restaurantApplicationSchema = new mongoose.Schema(
 );
 
 restaurantApplicationSchema.index({ location: '2dsphere' });
+restaurantApplicationSchema.index({ organization: 1, status: 1 });
 
 module.exports = mongoose.model('RestaurantApplication', restaurantApplicationSchema);

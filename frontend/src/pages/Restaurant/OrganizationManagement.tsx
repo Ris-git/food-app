@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useOrganization } from '../../features/organization/context/OrganizationContext';
 import { organizationService } from '../../features/organization/services/organizationService';
+import { useAuth } from '../../features/auth/context/AuthContext';
 
 const card: React.CSSProperties = { background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '18px', padding: '22px' };
 const input: React.CSSProperties = { width: '100%', padding: '11px 12px', border: '1px solid #CBD5E1', borderRadius: '10px', boxSizing: 'border-box' };
@@ -8,6 +9,7 @@ const button: React.CSSProperties = { padding: '10px 16px', border: 0, borderRad
 
 export default function OrganizationManagement({ onBack }: { onBack: () => void }) {
   const { activeOrganization, reload } = useOrganization();
+  const { user } = useAuth();
   const [staff, setStaff] = useState<any>(null);
   const [overview, setOverview] = useState<any>(null);
   const [message, setMessage] = useState('');
@@ -34,12 +36,13 @@ export default function OrganizationManagement({ onBack }: { onBack: () => void 
     try {
       await organizationService.createRestaurant(activeOrganization._id, { ...restaurant, cuisine: [] });
       setRestaurant({ name: '', address: '', phone: '' });
-      await reload(); await load(); setMessage('Restaurant created.');
+      await reload(); await load(); setMessage('Restaurant submitted for admin approval.');
     } catch (error: any) { setMessage(error.message); }
   };
   const sendInvite = async (event: React.FormEvent) => {
     event.preventDefault(); setMessage('');
     try {
+      if (user?.email && invite.email.trim().toLowerCase() === user.email.trim().toLowerCase()) throw new Error('You cannot invite your own account.');
       const result: any = await organizationService.inviteStaff(activeOrganization._id, {
         email: invite.email, role: invite.role as 'ADMIN' | 'STAFF',
         restaurantAssignments: [{ restaurant: invite.restaurant, role: invite.restaurantRole as any }],
@@ -68,14 +71,21 @@ export default function OrganizationManagement({ onBack }: { onBack: () => void 
             <div><strong>{item.name}</strong><div style={{ color: '#64748B' }}>{item.formattedAddress || item.address}</div></div>
             {activeOrganization.restaurants.length > 1 && <button style={{ ...button, background: '#B91C1C' }} onClick={async () => { if (confirm('Archive this restaurant location?')) { await organizationService.archiveRestaurant(activeOrganization._id, item._id || item.id); await reload(); await load(); } }}>Archive</button>}
           </div>)}
+          {overview?.restaurantApplications?.length > 0 && <div style={{ marginTop: 18 }}>
+            <h3>Location applications</h3>
+            {overview.restaurantApplications.map((application: any) => <div key={application._id} style={{ borderTop: '1px solid #E2E8F0', padding: '12px 0', display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+              <div><strong>{application.restaurantName}</strong><div style={{ color: '#64748B' }}>{application.formattedAddress || application.address}</div>{application.adminRemarks && <small>{application.adminRemarks}</small>}</div>
+              <strong style={{ color: application.status === 'approved' ? '#047857' : application.status === 'rejected' ? '#B91C1C' : '#B45309', textTransform: 'capitalize' }}>{application.status}</strong>
+            </div>)}
+          </div>}
         </section>
         <section style={{ ...card, marginBottom: 18 }}>
           <h2>Add restaurant</h2>
           <form onSubmit={createRestaurant} style={{ display: 'grid', gridTemplateColumns: '2fr 3fr 2fr auto', gap: 10 }}>
             <input required placeholder="Restaurant name" value={restaurant.name} onChange={(e) => setRestaurant({ ...restaurant, name: e.target.value })} style={input} />
             <input required placeholder="Address" value={restaurant.address} onChange={(e) => setRestaurant({ ...restaurant, address: e.target.value })} style={input} />
-            <input placeholder="Phone" value={restaurant.phone} onChange={(e) => setRestaurant({ ...restaurant, phone: e.target.value })} style={input} />
-            <button style={button}>Add</button>
+            <input required placeholder="Phone" value={restaurant.phone} onChange={(e) => setRestaurant({ ...restaurant, phone: e.target.value })} style={input} />
+            <button style={button}>Submit for approval</button>
           </form>
         </section>
 
@@ -86,8 +96,9 @@ export default function OrganizationManagement({ onBack }: { onBack: () => void 
             <select value={invite.role} onChange={(e) => setInvite({ ...invite, role: e.target.value })} style={input}><option value="STAFF">Staff</option><option value="ADMIN">Org admin</option></select>
             <select value={invite.restaurant} onChange={(e) => setInvite({ ...invite, restaurant: e.target.value })} style={input}>{activeOrganization.restaurants.map((item) => <option key={item._id || item.id} value={item._id || item.id}>{item.name}</option>)}</select>
             <select value={invite.restaurantRole} onChange={(e) => setInvite({ ...invite, restaurantRole: e.target.value })} style={input}><option>MANAGER</option><option>KITCHEN</option><option>CASHIER</option><option>ANALYST</option></select>
-            <button style={button}>Invite</button>
+            <button style={button} disabled={Boolean(user?.email && invite.email.trim().toLowerCase() === user.email.trim().toLowerCase())}>Invite</button>
           </form>
+          {user?.email && invite.email.trim().toLowerCase() === user.email.trim().toLowerCase() && <p style={{ color: '#B91C1C', marginBottom: 0 }}>You cannot invite your own account.</p>}
         </section>
       </>}
 

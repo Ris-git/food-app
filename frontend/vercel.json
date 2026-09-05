@@ -4,6 +4,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://food-app-9k74.onrender.com/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }

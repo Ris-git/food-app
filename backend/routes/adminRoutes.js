@@ -64,28 +64,37 @@ router.patch('/applications/:id/approve', jwtAuthMiddleware, verifyAdminAccess, 
       });
     }
 
-    // Billing policy must exist before approval starts. Otherwise the
+    const isAdditionalLocation = application.applicationType === 'ADDITIONAL_LOCATION';
+
+    // Billing policy must exist before initial approval starts. Otherwise the
     // restaurant could be created without a usable subscription.
     const trialPlan = await Plan.findOne({
       isDefaultTrialPlan: true,
       isActive: true,
       trialDays: { $gt: 0 },
     });
-    if (!trialPlan) {
+    if (!trialPlan && !isAdditionalLocation) {
       return res.status(503).json({
         success: false,
         message: 'The default trial plan is not configured. Run the plan seed before approving applications.',
       });
     }
 
-    const provisioned = await ensureOwnerOrganization({
-      userId: application.user,
-      suggestedName: application.franchiseName || application.restaurantName,
-    });
+    const provisioned = isAdditionalLocation
+      ? { organization: await Organization.findById(application.organization) }
+      : await ensureOwnerOrganization({
+          userId: application.user,
+          suggestedName: application.franchiseName || application.restaurantName,
+        });
+    if (!provisioned.organization || provisioned.organization.status !== 'ACTIVE') {
+      return res.status(409).json({ success: false, message: 'The target organization is not active.' });
+    }
 
     // 1. Mark Application as Approved
     application.status = 'approved';
     application.adminRemarks = req.body.adminRemarks || 'Approved by Admin';
+    application.reviewedBy = req.user.id;
+    application.reviewedAt = new Date();
     await application.save();
 
     // 2. Create Restaurant Record linked to user (V2 Enabled)
@@ -110,7 +119,11 @@ router.patch('/applications/:id/approve', jwtAuthMiddleware, verifyAdminAccess, 
       { $setOnInsert: { organization: provisioned.organization._id, role: 'OWNER', status: 'ACTIVE' } },
       { upsert: true, setDefaultsOnInsert: true }
     );
-    await Organization.updateOne({ _id: provisioned.organization._id }, { $inc: { 'usage.restaurantCount': 1 } });
+    // Additional locations reserved their plan slot when submitted. Initial
+    // applications increment usage only once the first restaurant is created.
+    if (!isAdditionalLocation) {
+      await Organization.updateOne({ _id: provisioned.organization._id }, { $inc: { 'usage.restaurantCount': 1 } });
+    }
 
     // 3. Seed MenuItems if staged menu items exist
     let seededMenuItemsCount = 0;
@@ -133,8 +146,8 @@ router.patch('/applications/:id/approve', jwtAuthMiddleware, verifyAdminAccess, 
     // 5. Start the restaurant on the configured trial plan. The referenced
     // plan is the restaurant's real entitlement source throughout the trial.
     const existingSubscription = await Subscription.findOne({ organization: provisioned.organization._id });
-    const trialEndsAt = existingSubscription?.trialEndsAt || new Date(Date.now() + trialPlan.trialDays * 24 * 60 * 60 * 1000);
-    if (!existingSubscription) {
+    const trialEndsAt = existingSubscription?.trialEndsAt || (!isAdditionalLocation ? new Date(Date.now() + trialPlan.trialDays * 24 * 60 * 60 * 1000) : null);
+    if (!existingSubscription && !isAdditionalLocation) {
       await Subscription.create({
         organization: provisioned.organization._id,
         restaurant: newRestaurant._id,
@@ -145,7 +158,9 @@ router.patch('/applications/:id/approve', jwtAuthMiddleware, verifyAdminAccess, 
       });
     }
 
-    console.log(`Trial subscription created for '${newRestaurant.name}' — expires ${trialEndsAt.toDateString()}`);
+    console.log(isAdditionalLocation
+      ? `Additional location '${newRestaurant.name}' approved for organization ${provisioned.organization._id}.`
+      : `Trial subscription created for '${newRestaurant.name}' — expires ${trialEndsAt.toDateString()}`);
 
     console.log(
       `✅ Application ${applicationId} approved. Created restaurant '${newRestaurant.name}', seeded ${seededMenuItemsCount} menu items, upgraded user to 'restaurant' role, and started 30-day trial.`
@@ -153,7 +168,9 @@ router.patch('/applications/:id/approve', jwtAuthMiddleware, verifyAdminAccess, 
 
     return res.status(200).json({
       success: true,
-      message: 'Application approved! Restaurant created, menu items seeded, user upgraded, and 30-day trial started.',
+      message: isAdditionalLocation
+        ? 'Location approved and added to the organization.'
+        : 'Application approved! Restaurant created, menu items seeded, user upgraded, and trial started.',
       application,
       restaurant: newRestaurant,
       seededMenuItemsCount,
@@ -193,7 +210,15 @@ router.patch('/applications/:id/reject', jwtAuthMiddleware, verifyAdminAccess, a
     // Mark Application as Rejected with remarks
     application.status = 'rejected';
     application.adminRemarks = adminRemarks || 'Application did not meet restaurant criteria.';
+    application.reviewedBy = req.user.id;
+    application.reviewedAt = new Date();
     await application.save();
+    if (application.applicationType === 'ADDITIONAL_LOCATION' && application.organization) {
+      await Organization.updateOne(
+        { _id: application.organization, 'usage.restaurantCount': { $gt: 0 } },
+        { $inc: { 'usage.restaurantCount': -1 } }
+      );
+    }
 
     console.log(`❌ Application ${applicationId} rejected. Remarks: ${application.adminRemarks}`);
 

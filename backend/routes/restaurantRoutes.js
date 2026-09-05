@@ -8,6 +8,7 @@ const Restaurant = require("../models/Restaurant");
 const Subscription = require("../models/Subscription");
 const MenuItem = require("../models/MenuItem");
 const Order = require("../models/Order");
+const Payment = require("../models/Payment");
 const { reconcileSubscription } = require("../services/subscriptionLifecycleService");
 const { checkEntitlement, FEATURES } = require("../services/entitlementService");
 const { requireRestaurant, RESTAURANT_PERMISSIONS } = require("../services/organizationAccessService");
@@ -100,14 +101,15 @@ router.get("/my-analytics", jwtAuthMiddleware, requireRestaurant(RESTAURANT_PERM
     to.setHours(23, 59, 59, 999);
 
     const match = { restaurant: restaurant._id, createdAt: { $gte: from, $lte: to } };
-    const [summary, popularItems] = await Promise.all([
+    const [summary, popularItems, dailyOrders, paymentSummary] = await Promise.all([
       Order.aggregate([
         { $match: match },
         { $group: {
           _id: null,
           orderCount: { $sum: 1 },
           deliveredOrders: { $sum: { $cond: [{ $eq: ["$status", "Delivered"] }, 1, 0] } },
-          revenue: { $sum: { $cond: [{ $eq: ["$status", "Delivered"] }, "$totalPrice", 0] } },
+          cancelledOrders: { $sum: { $cond: [{ $eq: ["$status", "Cancelled"] }, 1, 0] } },
+          grossOrderValue: { $sum: { $cond: [{ $eq: ["$status", "Delivered"] }, "$totalPrice", 0] } },
         } },
       ]),
       Order.aggregate([
@@ -119,15 +121,48 @@ router.get("/my-analytics", jwtAuthMiddleware, requireRestaurant(RESTAURANT_PERM
         { $lookup: { from: "menuitems", localField: "_id", foreignField: "_id", as: "menuItem" } },
         { $project: { _id: 0, menuItemId: "$_id", title: { $ifNull: [{ $arrayElemAt: ["$menuItem.title", 0] }, "Deleted item"] }, quantity: 1, revenue: 1 } },
       ]),
+      Order.aggregate([
+        { $match: match },
+        { $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          orders: { $sum: 1 },
+          revenue: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, '$totalPrice', 0] } },
+        } },
+        { $sort: { _id: 1 } },
+        { $project: { _id: 0, date: '$_id', orders: 1, revenue: 1 } },
+      ]),
+      Payment.aggregate([
+        { $match: { createdAt: { $gte: from, $lte: to }, status: { $in: ['Successful', 'Refunded'] } } },
+        { $lookup: { from: 'orders', localField: 'order', foreignField: '_id', as: 'orderDocument' } },
+        { $unwind: '$orderDocument' },
+        { $match: { 'orderDocument.restaurant': restaurant._id } },
+        { $group: {
+          _id: null,
+          collectedRevenue: { $sum: { $cond: [{ $eq: ['$status', 'Successful'] }, '$amount', 0] } },
+          refundedAmount: { $sum: { $cond: [{ $eq: ['$status', 'Refunded'] }, '$amount', 0] } },
+        } },
+      ]),
     ]);
+
+    const orderCount = summary[0]?.orderCount || 0;
+    const deliveredOrders = summary[0]?.deliveredOrders || 0;
+    const cancelledOrders = summary[0]?.cancelledOrders || 0;
+    const grossOrderValue = summary[0]?.grossOrderValue || 0;
 
     return res.json({
       success: true,
       analytics: {
-        orderCount: summary[0]?.orderCount || 0,
-        deliveredOrders: summary[0]?.deliveredOrders || 0,
-        revenue: summary[0]?.revenue || 0,
+        orderCount,
+        deliveredOrders,
+        cancelledOrders,
+        grossOrderValue,
+        revenue: grossOrderValue,
+        collectedRevenue: paymentSummary[0]?.collectedRevenue || 0,
+        refundedAmount: paymentSummary[0]?.refundedAmount || 0,
+        averageOrderValue: deliveredOrders ? Number((grossOrderValue / deliveredOrders).toFixed(2)) : 0,
+        cancellationRate: orderCount ? Number(((cancelledOrders / orderCount) * 100).toFixed(1)) : 0,
         popularItems,
+        dailyOrders,
         from,
         to,
       },

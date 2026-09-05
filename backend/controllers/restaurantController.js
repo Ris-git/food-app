@@ -34,7 +34,8 @@ exports.createRestaurant = async (req, res) => {
 // Get all restaurants (Public)
 exports.getAllRestaurants = async (req, res) => {
   try {
-    const restaurants = await Restaurant.find().populate("user", "name email phone");
+    const restaurants = await Restaurant.find({ lifecycleStatus: "ACTIVE" })
+      .select("name logoUrl address formattedAddress cuisine operationalStatus location operatingHours");
 
     return res.status(200).json({
       success: true,
@@ -54,7 +55,8 @@ exports.getRestaurantById = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid restaurant ID format" });
     }
 
-    const restaurant = await Restaurant.findById(req.params.id).populate("user", "name email phone");
+    const restaurant = await Restaurant.findOne({ _id: req.params.id, lifecycleStatus: "ACTIVE" })
+      .select("name logoUrl address formattedAddress cuisine operationalStatus location operatingHours");
     if (!restaurant) {
       return res.status(404).json({ success: false, message: "Restaurant not found" });
     }
