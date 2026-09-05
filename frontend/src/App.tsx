@@ -33,9 +33,12 @@ export default function App() {
 
   useEffect(() => {
     if (!user || route.pathname !== '/login') return;
-    const token = new URLSearchParams(route.search).get('staffInvite');
-    if (!token) navigate(user.role === 'restaurant' ? '/dashboard' : '/', { replace: true });
-    else navigate(`/invitations/accept?staffInvite=${encodeURIComponent(token)}`, { replace: true });
+    const searchParams = new URLSearchParams(route.search);
+    const token = searchParams.get('staffInvite');
+    const returnTo = searchParams.get('returnTo');
+    if (token) navigate(`/invitations/accept?staffInvite=${encodeURIComponent(token)}`, { replace: true });
+    else if (returnTo?.startsWith('/') && !returnTo.startsWith('//')) navigate(returnTo, { replace: true });
+    else navigate(user.role === 'restaurant' ? '/dashboard' : '/', { replace: true });
   }, [user, route.pathname, route.search, navigate]);
 
   useEffect(() => {
@@ -84,7 +87,7 @@ export default function App() {
       <Route path="/login" element={<AuthPage><Login /></AuthPage>} />
       <Route path="/signup" element={<AuthPage><Signup /></AuthPage>} />
       <Route path="/verify-email" element={<AuthPage><VerifyEmail /></AuthPage>} />
-      <Route path="/partner" element={<AuthPage><PartnerApplication /></AuthPage>} />
+      <Route path="/partner" element={<RequireAuthentication><AuthPage><PartnerApplication /></AuthPage></RequireAuthentication>} />
       <Route path="/admin" element={<AdminApplications />} />
       <Route path="/dashboard" element={<RestaurantDashboard onNavigateBilling={() => navigate('/dashboard/billing')} />} />
       <Route path="/dashboard/billing" element={<Billing onBackToDashboard={() => navigate('/dashboard')} />} />
@@ -97,4 +100,17 @@ export default function App() {
 
 function AuthPage({ children }: { children: React.ReactNode }) {
   return <div>{children}<p style={{ textAlign: 'center' }}><Link className="btn-ghost" to="/">Back to Home</Link></p></div>;
+}
+
+function RequireAuthentication({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) return <main className="customer-page"><div className="state-card">Checking your session…</div></main>;
+  if (!user) {
+    const returnTo = `${location.pathname}${location.search}`;
+    return <Navigate to={`/login?returnTo=${encodeURIComponent(returnTo)}`} replace />;
+  }
+
+  return children;
 }
