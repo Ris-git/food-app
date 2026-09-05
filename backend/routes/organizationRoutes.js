@@ -109,6 +109,9 @@ router.post('/:organizationId/restaurants', jwtAuthMiddleware, requireOrganizati
     const name = String(req.body.name || '').trim();
     const address = String(req.body.address || '').trim();
     const phone = String(req.body.phone || '').trim();
+    const cuisine = Array.isArray(req.body.cuisine)
+      ? req.body.cuisine.map((item) => String(item).trim()).filter(Boolean).join(', ')
+      : String(req.body.cuisine || '').trim();
     if (!name || !address || !phone) throw new Error('Restaurant name, address, and phone are required.');
     const application = await RestaurantApplication.create({
       user: req.user.id,
@@ -117,7 +120,7 @@ router.post('/:organizationId/restaurants', jwtAuthMiddleware, requireOrganizati
       restaurantName: name,
       franchiseName: String(req.body.franchiseName || '').trim(),
       phone,
-      cuisine: Array.isArray(req.body.cuisine) ? req.body.cuisine.join(', ') : String(req.body.cuisine || 'Other'),
+      cuisine: cuisine || 'Other',
       address,
       formattedAddress: String(req.body.formattedAddress || address).trim(),
       status: 'pending',

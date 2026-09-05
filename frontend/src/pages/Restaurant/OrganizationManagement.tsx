@@ -13,7 +13,7 @@ export default function OrganizationManagement({ onBack }: { onBack: () => void 
   const [staff, setStaff] = useState<any>(null);
   const [overview, setOverview] = useState<any>(null);
   const [message, setMessage] = useState('');
-  const [restaurant, setRestaurant] = useState({ name: '', address: '', phone: '' });
+  const [restaurant, setRestaurant] = useState({ name: '', address: '', phone: '', cuisine: '' });
   const [invite, setInvite] = useState({ email: '', role: 'STAFF', restaurant: '', restaurantRole: 'MANAGER' });
 
   const load = async () => {
@@ -34,8 +34,13 @@ export default function OrganizationManagement({ onBack }: { onBack: () => void 
   const createRestaurant = async (event: React.FormEvent) => {
     event.preventDefault(); setMessage('');
     try {
-      await organizationService.createRestaurant(activeOrganization._id, { ...restaurant, cuisine: [] });
-      setRestaurant({ name: '', address: '', phone: '' });
+      await organizationService.createRestaurant(activeOrganization._id, {
+        name: restaurant.name,
+        address: restaurant.address,
+        phone: restaurant.phone,
+        cuisine: restaurant.cuisine.split(',').map((item) => item.trim()).filter(Boolean),
+      });
+      setRestaurant({ name: '', address: '', phone: '', cuisine: '' });
       await reload(); await load(); setMessage('Restaurant submitted for admin approval.');
     } catch (error: any) { setMessage(error.message); }
   };
@@ -81,10 +86,11 @@ export default function OrganizationManagement({ onBack }: { onBack: () => void 
         </section>
         <section style={{ ...card, marginBottom: 18 }}>
           <h2>Add restaurant</h2>
-          <form onSubmit={createRestaurant} style={{ display: 'grid', gridTemplateColumns: '2fr 3fr 2fr auto', gap: 10 }}>
+          <form onSubmit={createRestaurant} style={{ display: 'grid', gridTemplateColumns: '2fr 3fr 2fr 2fr auto', gap: 10 }}>
             <input required placeholder="Restaurant name" value={restaurant.name} onChange={(e) => setRestaurant({ ...restaurant, name: e.target.value })} style={input} />
             <input required placeholder="Address" value={restaurant.address} onChange={(e) => setRestaurant({ ...restaurant, address: e.target.value })} style={input} />
             <input required placeholder="Phone" value={restaurant.phone} onChange={(e) => setRestaurant({ ...restaurant, phone: e.target.value })} style={input} />
+            <input required placeholder="Cuisines, comma separated" value={restaurant.cuisine} onChange={(e) => setRestaurant({ ...restaurant, cuisine: e.target.value })} style={input} />
             <button style={button}>Submit for approval</button>
           </form>
         </section>
