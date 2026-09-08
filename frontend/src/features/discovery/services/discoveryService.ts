@@ -8,6 +8,7 @@ export type PublicRestaurant = {
   address: string;
   cuisines: string[];
   operationalStatus: 'OPEN' | 'CLOSED' | 'BUSY' | 'TEMPORARILY_UNAVAILABLE';
+  isOpenNow: boolean;
   rating: number | null;
   reviewCount: number;
 };

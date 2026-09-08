@@ -4,24 +4,29 @@ const Restaurant = require('../models/Restaurant');
 const MenuItem = require('../models/MenuItem');
 const Review = require('../models/Review');
 const discoveryCategories = require('../config/discoveryCategories');
+const { getPublicAvailability } = require('../services/restaurantAvailabilityService');
 
 const router = express.Router();
 const publicRestaurantMatch = { lifecycleStatus: 'ACTIVE' };
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const safeRestaurant = (restaurant, rating) => ({
-  id: restaurant._id,
-  name: restaurant.name,
-  logoUrl: restaurant.logoUrl || '',
-  description: restaurant.description || '',
-  address: restaurant.formattedAddress || restaurant.address,
-  cuisines: restaurant.cuisine || [],
-  operationalStatus: restaurant.operationalStatus,
-  operatingHours: restaurant.operatingHours,
-  location: restaurant.location,
-  rating: rating?.averageRating ? Number(rating.averageRating.toFixed(1)) : null,
-  reviewCount: rating?.reviewCount || 0,
-});
+const safeRestaurant = (restaurant, rating) => {
+  const availability = getPublicAvailability(restaurant);
+  return {
+    id: restaurant._id,
+    name: restaurant.name,
+    logoUrl: restaurant.logoUrl || '',
+    description: restaurant.description || '',
+    address: restaurant.formattedAddress || restaurant.address,
+    cuisines: restaurant.cuisine || [],
+    operationalStatus: availability.operationalStatus,
+    isOpenNow: availability.isOpenNow,
+    operatingHours: restaurant.operatingHours,
+    location: restaurant.location,
+    rating: rating?.averageRating ? Number(rating.averageRating.toFixed(1)) : null,
+    reviewCount: rating?.reviewCount || 0,
+  };
+};
 
 router.get('/restaurants', async (req, res) => {
   try {

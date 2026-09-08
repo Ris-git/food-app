@@ -22,7 +22,7 @@
 .customer-hero h1 { max-width: 720px; margin: 0; font-size: clamp(42px,6vw,72px); line-height: .98; letter-spacing: -.045em; }
 .customer-hero > p:not(.eyebrow) { color: #475569; font-size: 18px; }
 .discovery-search { display: grid; grid-template-columns: 1fr 1.2fr auto; gap: 10px; margin-top: 30px; }
-.discovery-search input, .compact-search input, .menu-search { min-width: 0; border: 1px solid #cbd5e1; background: #fff; border-radius: 12px; padding: 15px 16px; font: inherit; }
+.discovery-search input, .compact-search input { min-width: 0; border: 1px solid #cbd5e1; background: #fff; border-radius: 12px; padding: 15px 16px; font: inherit; }
 .discovery-search button, .compact-search button { border: 0; border-radius: 12px; padding: 0 24px; background: #0f172a; color: #fff; font-weight: 800; cursor: pointer; }
 .discovery-section, .menu-shell { background: #fff; border-radius: 24px; padding: 28px; margin: 22px 0; }
 .section-heading { display: flex; justify-content: space-between; align-items: end; gap: 20px; }
@@ -47,10 +47,6 @@
 .restaurant-meta { display: flex; justify-content: space-between; gap: 8px; margin-top: 14px; color: #047857; font-size: 12px; font-weight: 800; }
 .state-card { margin-top: 20px; padding: 25px; background: #f8fafc; border-radius: 14px; color: #64748b; text-align: center; }
 .state-card.error { background: #fef2f2; color: #b91c1c; }
-.collections { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin: 24px 0; }
-.collections article { padding: 28px; border-radius: 20px; background: #052e24; color: #fff; }
-.collections span { color: #6ee7b7; font-weight: 900; }
-.collections p { color: #a7f3d0; }
 .detail-page { padding-top: 20px; }
 .restaurant-banner { margin-top: 20px; padding: 42px; border-radius: 28px; background: #fff; display: flex; gap: 28px; align-items: center; }
 .restaurant-banner h1 { margin: 0 0 8px; font-size: 44px; }
@@ -72,7 +68,7 @@
   .header { padding: 18px 24px; }
   .header-link, .btn-ghost, .btn-outline-pill { display: none; }
   .customer-hero { padding: 48px 24px; }
-  .discovery-search, .restaurant-grid, .collections, .menu-grid { grid-template-columns: 1fr; }
+  .discovery-search, .restaurant-grid, .menu-grid { grid-template-columns: 1fr; }
   .discovery-search button { padding: 15px; }
   .section-heading { align-items: stretch; flex-direction: column; }
   .compact-search { flex-direction: column; }

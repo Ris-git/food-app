@@ -27,10 +27,13 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
     discoveryService.categories().then((response) => setCategories(response.categories)).catch(() => setCategories(fallbackCategories));
   }, []);
   useEffect(() => {
-    discoveryService.restaurants({ location, search, category: selectedCategory })
+    const load = () => discoveryService.restaurants({ location, search, category: selectedCategory })
       .then((response) => { setRestaurants(response.restaurants); setError(''); })
       .catch((reason: Error) => setError(reason.message))
       .finally(() => setLoading(false));
+    void load();
+    const timer = window.setInterval(() => void load(), 60_000);
+    return () => window.clearInterval(timer);
   }, [location, search, selectedCategory]);
 
   const submit = (event: React.FormEvent) => {
@@ -67,11 +70,10 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
       <div className="section-heading"><div><p className="eyebrow">NEAR YOU</p><h2>{location ? `Restaurants around ${location}` : 'Approved restaurants on Foody'}</h2></div>{landing && <Link to="/restaurants">View all</Link>}</div>
       {error && <div className="state-card error">{error}</div>}
       {loading ? <div className="state-card">Finding restaurants…</div> : restaurants.length ? <div className="restaurant-grid">{restaurants.map((restaurant) => <Link className="restaurant-card" to={`/restaurants/${restaurant.id}`} key={restaurant.id}>
-        <div className="restaurant-image">{restaurant.logoUrl ? <img src={restaurant.logoUrl} alt="" /> : <span>{restaurant.name.charAt(0)}</span>}<b className={`status ${restaurant.operationalStatus === 'OPEN' ? 'open' : ''}`}>{restaurant.operationalStatus.replaceAll('_', ' ')}</b></div>
+        <div className="restaurant-image">{restaurant.logoUrl ? <img src={restaurant.logoUrl} alt="" /> : <span>{restaurant.name.charAt(0)}</span>}<b className={`status ${restaurant.isOpenNow ? 'open' : ''}`}>{restaurant.operationalStatus.replaceAll('_', ' ')}</b></div>
         <div className="restaurant-card-body"><h3>{restaurant.name}</h3><p>{restaurant.cuisines.join(' · ') || 'Multi-cuisine'}</p><p className="address">{restaurant.address}</p><div className="restaurant-meta"><span>{restaurant.rating ? `★ ${restaurant.rating} (${restaurant.reviewCount})` : 'New on Foody'}</span><span>View menu →</span></div></div>
       </Link>)}</div> : <div className="state-card">No approved restaurants match this search yet.</div>}
     </section>
 
-    {landing && <section className="collections"><article><span>01</span><h3>Popular near you</h3><p>Browse restaurants customers are discovering in your area.</p></article><article><span>02</span><h3>Open right now</h3><p>See restaurants currently accepting orders.</p></article><article><span>03</span><h3>New on Foody</h3><p>Meet recently approved local kitchens.</p></article></section>}
   </main>;
 }
