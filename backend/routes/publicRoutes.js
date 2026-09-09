@@ -5,13 +5,16 @@ const MenuItem = require('../models/MenuItem');
 const Review = require('../models/Review');
 const discoveryCategories = require('../config/discoveryCategories');
 const { getPublicAvailability } = require('../services/restaurantAvailabilityService');
+const { distanceBetweenKm, estimatedDeliveryMinutes, priceLevelForAverage } = require('../services/restaurantDiscoveryService');
 
 const router = express.Router();
 const publicRestaurantMatch = { lifecycleStatus: 'ACTIVE' };
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const safeRestaurant = (restaurant, rating) => {
+const safeRestaurant = (restaurant, rating, menuSummary, originCoordinates) => {
   const availability = getPublicAvailability(restaurant);
+  const distanceKm = distanceBetweenKm(originCoordinates, restaurant.location?.coordinates);
+  const priceLevel = priceLevelForAverage(menuSummary?.averagePrice);
   return {
     id: restaurant._id,
     name: restaurant.name,
@@ -25,6 +28,11 @@ const safeRestaurant = (restaurant, rating) => {
     location: restaurant.location,
     rating: rating?.averageRating ? Number(rating.averageRating.toFixed(1)) : null,
     reviewCount: rating?.reviewCount || 0,
+    distanceKm,
+    estimatedDeliveryMinutes: estimatedDeliveryMinutes(distanceKm),
+    priceLevel,
+    priceRange: priceLevel ? '₹'.repeat(priceLevel) : null,
+    menuTypes: menuSummary?.menuTypes || [],
   };
 };
 
@@ -35,6 +43,18 @@ router.get('/restaurants', async (req, res) => {
     const cuisine = String(req.query.cuisine || '').trim();
     const categorySlug = String(req.query.category || '').trim();
     const search = String(req.query.search || '').trim();
+    const dietary = String(req.query.dietary || '').trim();
+    const minimumRating = Number(req.query.minimumRating || 0);
+    const priceLevel = Number(req.query.priceLevel || 0);
+    const openNow = req.query.openNow === 'true';
+    const sort = String(req.query.sort || 'newest');
+    const latitude = Number(req.query.latitude);
+    const longitude = Number(req.query.longitude);
+    const originCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude) ? [longitude, latitude] : null;
+    if (dietary && !['veg', 'non-veg'].includes(dietary)) return res.status(400).json({ success: false, message: 'Unknown dietary filter.' });
+    if (![0, 1, 2, 3].includes(priceLevel)) return res.status(400).json({ success: false, message: 'Unknown price filter.' });
+    if (minimumRating < 0 || minimumRating > 5) return res.status(400).json({ success: false, message: 'Unknown rating filter.' });
+    if (!['newest', 'rating', 'deliveryTime'].includes(sort)) return res.status(400).json({ success: false, message: 'Unknown sorting option.' });
     const clauses = [];
     if (location) clauses.push({ $or: [{ address: { $regex: escapeRegex(location), $options: 'i' } }, { formattedAddress: { $regex: escapeRegex(location), $options: 'i' } }] });
     if (cuisine) clauses.push({ cuisine: { $regex: escapeRegex(cuisine), $options: 'i' } });
@@ -54,6 +74,10 @@ router.get('/restaurants', async (req, res) => {
       });
       clauses.push({ _id: { $in: matchingRestaurantIds } });
     }
+    if (dietary) {
+      const matchingRestaurantIds = await MenuItem.distinct('restaurant', { isAvailable: true, type: dietary });
+      clauses.push({ _id: { $in: matchingRestaurantIds } });
+    }
     if (clauses.length) match.$and = clauses;
 
     const restaurants = await Restaurant.find(match).sort({ createdAt: -1 }).limit(100).lean();
@@ -62,7 +86,18 @@ router.get('/restaurants', async (req, res) => {
       { $group: { _id: '$restaurant', averageRating: { $avg: '$rating' }, reviewCount: { $sum: 1 } } },
     ]);
     const ratingMap = new Map(ratings.map((item) => [String(item._id), item]));
-    return res.json({ success: true, restaurants: restaurants.map((item) => safeRestaurant(item, ratingMap.get(String(item._id)))) });
+    const menuSummaries = await MenuItem.aggregate([
+      { $match: { restaurant: { $in: restaurants.map((item) => item._id) }, isAvailable: true } },
+      { $group: { _id: '$restaurant', averagePrice: { $avg: '$price' }, menuTypes: { $addToSet: '$type' } } },
+    ]);
+    const menuSummaryMap = new Map(menuSummaries.map((item) => [String(item._id), item]));
+    let results = restaurants.map((item) => safeRestaurant(item, ratingMap.get(String(item._id)), menuSummaryMap.get(String(item._id)), originCoordinates));
+    if (openNow) results = results.filter((item) => item.isOpenNow);
+    if (minimumRating) results = results.filter((item) => (item.rating || 0) >= minimumRating);
+    if (priceLevel) results = results.filter((item) => item.priceLevel === priceLevel);
+    if (sort === 'rating') results.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    if (sort === 'deliveryTime') results.sort((a, b) => a.estimatedDeliveryMinutes - b.estimatedDeliveryMinutes);
+    return res.json({ success: true, restaurants: results });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Failed to discover restaurants.' });
   }
@@ -77,7 +112,11 @@ router.get('/restaurants/:restaurantId', async (req, res) => {
       { $match: { restaurant: restaurant._id } },
       { $group: { _id: '$restaurant', averageRating: { $avg: '$rating' }, reviewCount: { $sum: 1 } } },
     ]);
-    return res.json({ success: true, restaurant: safeRestaurant(restaurant, rating[0]) });
+    const menuSummary = await MenuItem.aggregate([
+      { $match: { restaurant: restaurant._id, isAvailable: true } },
+      { $group: { _id: '$restaurant', averagePrice: { $avg: '$price' }, menuTypes: { $addToSet: '$type' } } },
+    ]);
+    return res.json({ success: true, restaurant: safeRestaurant(restaurant, rating[0], menuSummary[0], null) });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Failed to load restaurant.' });
   }
