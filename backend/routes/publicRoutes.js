@@ -128,6 +128,12 @@ router.get('/restaurants', async (req, res) => {
 router.get('/restaurants/:restaurantId', async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.restaurantId)) return res.status(404).json({ success: false, message: 'Restaurant not found.' });
+    const latitude = Number(req.query.latitude);
+    const longitude = Number(req.query.longitude);
+    const originCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude)
+      && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180
+      ? [longitude, latitude]
+      : null;
     const restaurant = await Restaurant.findOne({ _id: req.params.restaurantId, ...publicRestaurantMatch }).lean();
     if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found.' });
     const rating = await Review.aggregate([
@@ -138,7 +144,7 @@ router.get('/restaurants/:restaurantId', async (req, res) => {
       { $match: { restaurant: restaurant._id, isAvailable: true } },
       { $group: { _id: '$restaurant', averagePrice: { $avg: '$price' }, menuTypes: { $addToSet: '$type' } } },
     ]);
-    return res.json({ success: true, restaurant: safeRestaurant(restaurant, rating[0], menuSummary[0], null) });
+    return res.json({ success: true, restaurant: safeRestaurant(restaurant, rating[0], menuSummary[0], originCoordinates) });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Failed to load restaurant.' });
   }
@@ -149,7 +155,7 @@ router.get('/restaurants/:restaurantId/menu', async (req, res) => {
     if (!mongoose.isValidObjectId(req.params.restaurantId)) return res.status(404).json({ success: false, message: 'Restaurant not found.' });
     const restaurant = await Restaurant.exists({ _id: req.params.restaurantId, ...publicRestaurantMatch });
     if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found.' });
-    const menuItems = await MenuItem.find({ restaurant: req.params.restaurantId, isAvailable: true })
+    const menuItems = await MenuItem.find({ restaurant: req.params.restaurantId })
       .select('title type description price isAvailable')
       .sort({ type: 1, title: 1 })
       .lean();

@@ -63,9 +63,25 @@
 .restaurant-banner { margin-top: 20px; padding: 42px; border-radius: 28px; background: #fff; display: flex; gap: 28px; align-items: center; }
 .restaurant-banner h1 { margin: 0 0 8px; font-size: 44px; }
 .restaurant-banner p { margin: 5px 0; color: #64748b; }
+.restaurant-banner-content { min-width: 0; }
 .restaurant-monogram { width: 120px; height: 120px; flex: 0 0 120px; border-radius: 28px; display: grid; place-items: center; background: #d1fae5; color: #047857; font-size: 56px; font-weight: 900; }
+.restaurant-monogram img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+.detail-facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.detail-facts span { padding: 6px 9px; border-radius: 999px; background: #f1f5f9; color: #334155; font-size: 12px; font-weight: 800; }
 .detail-status { display: inline-block; margin-top: 12px; padding: 7px 12px; border-radius: 999px; background: #fef2f2; color: #b91c1c; font-size: 11px; font-weight: 900; }
 .detail-status.open { background: #ecfdf5; color: #047857; }
+.restaurant-information-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; margin: 22px 0; }
+.info-card { padding: 22px; border-radius: 18px; background: #fff; }
+.info-card h2 { margin: 0 0 14px; font-size: 20px; }
+.info-card > p:not(.eyebrow) { color: #64748b; }
+.info-card dl { margin: 0; }
+.info-card dl div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; color: #475569; font-size: 13px; }
+.info-card dd { margin: 0; text-align: right; color: #0f172a; font-weight: 700; }
+.hours-card .today { margin: 0 -8px; padding: 7px 8px; border-radius: 8px; background: #ecfdf5; color: #047857; }
+.menu-cart-layout { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 18px; align-items: start; }
+.menu-cart-layout .menu-shell { margin-top: 0; }
+.menu-category-nav { display: flex; gap: 8px; overflow-x: auto; padding: 16px 0 2px; }
+.menu-category-nav a { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 999px; color: #334155; text-decoration: none; white-space: nowrap; font-size: 12px; font-weight: 800; }
 .menu-group > h3 { text-transform: capitalize; margin-top: 28px; }
 .menu-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; }
 .menu-item { border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; display: flex; justify-content: space-between; gap: 16px; }
@@ -73,6 +89,20 @@
 .menu-item p { color: #64748b; font-size: 13px; }
 .menu-item button { align-self: center; border: 1px solid #10b981; color: #047857; background: #fff; border-radius: 9px; padding: 8px 18px; font-weight: 800; cursor: pointer; }
 .menu-item button:disabled { border-color: #cbd5e1; color: #94a3b8; }
+.menu-item.unavailable { background: #f8fafc; opacity: .72; }
+.menu-item small { display: block; margin-top: 8px; color: #b91c1c; font-weight: 800; }
+.inline-quantity, .cart-controls { display: flex; align-items: center; gap: 8px; }
+.inline-quantity button, .cart-controls button { min-width: 30px; padding: 6px; }
+.cart-panel { position: sticky; top: 20px; padding: 24px; border-radius: 20px; background: #fff; }
+.cart-panel h2 { margin: 0 0 18px; font-size: 22px; }
+.cart-panel > p:not(.eyebrow), .cart-note { color: #64748b; font-size: 13px; }
+.cart-items { display: grid; gap: 14px; }
+.cart-row { display: grid; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid #e2e8f0; }
+.cart-row > div:first-child { display: flex; justify-content: space-between; gap: 8px; }
+.cart-row small { color: #475569; }
+.cart-controls button { border: 1px solid #cbd5e1; border-radius: 7px; background: #fff; color: #0f172a; cursor: pointer; }
+.cart-controls .remove-cart-item { margin-left: auto; border: 0; color: #b91c1c; }
+.cart-subtotal { display: flex; justify-content: space-between; margin-top: 18px; padding-top: 16px; border-top: 2px solid #e2e8f0; font-size: 18px; }
 .food-dot { display: inline-block; width: 8px; height: 8px; border: 2px solid #16a34a; }
 .food-dot.nonveg { border-color: #dc2626; }
 
@@ -89,6 +119,8 @@
   .restaurant-banner { padding: 24px; align-items: flex-start; }
   .restaurant-monogram { width: 72px; height: 72px; flex-basis: 72px; font-size: 32px; }
   .restaurant-banner h1 { font-size: 30px; }
+  .restaurant-information-grid, .menu-cart-layout { grid-template-columns: 1fr; }
+  .cart-panel { position: static; }
 }
 
 /* Header / Top Navigation */

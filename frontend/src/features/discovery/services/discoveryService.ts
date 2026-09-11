@@ -16,6 +16,8 @@ export type PublicRestaurant = {
   priceLevel: number | null;
   priceRange: string | null;
   menuTypes: string[];
+  operatingHours: Record<string, { isOpen: boolean; openTime: string; closeTime: string }>;
+  location: { type: 'Point'; coordinates: [number, number] };
 };
 
 export type PublicMenuItem = {
@@ -40,7 +42,14 @@ export const discoveryService = {
     });
     return apiRequest(`/public/restaurants${params.size ? `?${params}` : ''}`, { method: 'GET' }) as Promise<{ success: boolean; restaurants: PublicRestaurant[] }>;
   },
-  restaurant: (id: string) => apiRequest(`/public/restaurants/${id}`, { method: 'GET' }) as Promise<{ success: boolean; restaurant: PublicRestaurant }>,
+  restaurant: (id: string, coordinates?: { latitude: number; longitude: number } | null) => {
+    const params = new URLSearchParams();
+    if (coordinates) {
+      params.set('latitude', String(coordinates.latitude));
+      params.set('longitude', String(coordinates.longitude));
+    }
+    return apiRequest(`/public/restaurants/${id}${params.size ? `?${params}` : ''}`, { method: 'GET' }) as Promise<{ success: boolean; restaurant: PublicRestaurant }>;
+  },
   menu: (id: string) => apiRequest(`/public/restaurants/${id}/menu`, { method: 'GET' }) as Promise<{ success: boolean; menuItems: PublicMenuItem[] }>,
   cuisines: () => apiRequest('/public/cuisines', { method: 'GET' }) as Promise<{ success: boolean; cuisines: string[] }>,
   categories: () => apiRequest('/public/categories', { method: 'GET' }) as Promise<{ success: boolean; categories: DiscoveryCategory[] }>,
