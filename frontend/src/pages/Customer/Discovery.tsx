@@ -23,7 +23,16 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
   const [minimumRating, setMinimumRating] = useState(Number(params.get('minimumRating') || 0));
   const [priceLevel, setPriceLevel] = useState(Number(params.get('priceLevel') || 0));
   const [sort, setSort] = useState(params.get('sort') || 'newest');
-  const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [radiusKm, setRadiusKm] = useState(10);
+  const [locating, setLocating] = useState(false);
+  const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(() => {
+    try {
+      const stored = sessionStorage.getItem('foodyCoordinates');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
   const [restaurants, setRestaurants] = useState<PublicRestaurant[]>([]);
   const [categories, setCategories] = useState<DiscoveryCategory[]>(fallbackCategories);
   const [loading, setLoading] = useState(true);
@@ -33,21 +42,35 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
     discoveryService.categories().then((response) => setCategories(response.categories)).catch(() => setCategories(fallbackCategories));
   }, []);
   useEffect(() => {
-    const load = () => discoveryService.restaurants({ location, search, category: selectedCategory, openNow, dietary, minimumRating, priceLevel, sort, latitude: coordinates?.latitude, longitude: coordinates?.longitude })
+    const load = () => discoveryService.restaurants({ location, search, category: selectedCategory, openNow, dietary, minimumRating, priceLevel, sort, latitude: coordinates?.latitude, longitude: coordinates?.longitude, radiusKm: coordinates ? radiusKm : undefined })
       .then((response) => { setRestaurants(response.restaurants); setError(''); })
       .catch((reason: Error) => setError(reason.message))
       .finally(() => setLoading(false));
     void load();
     const timer = window.setInterval(() => void load(), 60_000);
     return () => window.clearInterval(timer);
-  }, [location, search, selectedCategory, openNow, dietary, minimumRating, priceLevel, sort, coordinates]);
+  }, [location, search, selectedCategory, openNow, dietary, minimumRating, priceLevel, sort, coordinates, radiusKm]);
 
   const useCurrentLocation = () => {
     if (!navigator.geolocation) return setError('Location is not supported by this browser.');
+    setLocating(true);
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => { setCoordinates({ latitude: coords.latitude, longitude: coords.longitude }); setError(''); },
-      () => setError('Foody could not access your current location.'),
+      ({ coords }) => {
+        const nextCoordinates = { latitude: coords.latitude, longitude: coords.longitude };
+        setCoordinates(nextCoordinates);
+        sessionStorage.setItem('foodyCoordinates', JSON.stringify(nextCoordinates));
+        setSort('distance');
+        setLocating(false);
+        setError('');
+      },
+      () => { setLocating(false); setError('Foody could not access your current location.'); },
     );
+  };
+
+  const clearCurrentLocation = () => {
+    setCoordinates(null);
+    sessionStorage.removeItem('foodyCoordinates');
+    if (sort === 'distance') setSort('newest');
   };
 
   const clearFilters = () => {
@@ -83,7 +106,10 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
         <input aria-label="Search restaurants" placeholder="Search restaurant or cuisine" value={search} onChange={(event) => setSearch(event.target.value)} />
         <button>Find food</button>
       </form>
-      <button type="button" className="location-button" onClick={useCurrentLocation}>Use my current location</button>
+      <div className="location-actions">
+        <button type="button" className="location-button" onClick={useCurrentLocation} disabled={locating}>{locating ? 'Finding your location…' : coordinates ? 'Refresh current location' : 'Use my current location'}</button>
+        {coordinates && <><span>Showing restaurants within {radiusKm} km</span><button type="button" className="location-button" onClick={clearCurrentLocation}>Clear location</button></>}
+      </div>
     </section>}
 
     <section className="discovery-section">
@@ -97,7 +123,8 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
         <label>Food type<select value={dietary} onChange={(event) => setDietary(event.target.value)}><option value="">All</option><option value="veg">Vegetarian</option><option value="non-veg">Non-vegetarian</option></select></label>
         <label>Rating<select value={minimumRating} onChange={(event) => setMinimumRating(Number(event.target.value))}><option value={0}>Any rating</option><option value={4}>4+ stars</option><option value={3}>3+ stars</option></select></label>
         <label>Price<select value={priceLevel} onChange={(event) => setPriceLevel(Number(event.target.value))}><option value={0}>Any price</option><option value={1}>₹ Budget</option><option value={2}>₹₹ Moderate</option><option value={3}>₹₹₹ Premium</option></select></label>
-        <label>Sort by<select value={sort} onChange={(event) => setSort(event.target.value)}><option value="newest">Newest</option><option value="rating">Rating</option><option value="deliveryTime">Delivery time</option></select></label>
+        <label>Distance<select value={radiusKm} disabled={!coordinates} onChange={(event) => setRadiusKm(Number(event.target.value))}><option value={5}>Within 5 km</option><option value={10}>Within 10 km</option><option value={25}>Within 25 km</option><option value={50}>Within 50 km</option></select></label>
+        <label>Sort by<select value={sort} onChange={(event) => setSort(event.target.value)}><option value="newest">Newest</option><option value="rating">Rating</option><option value="deliveryTime">Delivery time</option>{coordinates && <option value="distance">Nearest first</option>}</select></label>
         <button type="button" className="clear-filters" onClick={clearFilters}>Clear filters</button>
       </div>
     </section>

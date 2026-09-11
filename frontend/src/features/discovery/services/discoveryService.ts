@@ -33,10 +33,10 @@ export type DiscoveryCategory = {
 };
 
 export const discoveryService = {
-  async restaurants(filters: { location?: string; cuisine?: string; category?: string; search?: string; dietary?: string; minimumRating?: number; priceLevel?: number; openNow?: boolean; sort?: string; latitude?: number; longitude?: number } = {}) {
+  async restaurants(filters: { location?: string; cuisine?: string; category?: string; search?: string; dietary?: string; minimumRating?: number; priceLevel?: number; openNow?: boolean; sort?: string; latitude?: number; longitude?: number; radiusKm?: number } = {}) {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== '' && value !== false && value !== 0) params.set(key, String(value));
+      if (value !== undefined && value !== '' && value !== false) params.set(key, String(value));
     });
     return apiRequest(`/public/restaurants${params.size ? `?${params}` : ''}`, { method: 'GET' }) as Promise<{ success: boolean; restaurants: PublicRestaurant[] }>;
   },

@@ -48,13 +48,21 @@ router.get('/restaurants', async (req, res) => {
     const priceLevel = Number(req.query.priceLevel || 0);
     const openNow = req.query.openNow === 'true';
     const sort = String(req.query.sort || 'newest');
+    const radiusKm = Number(req.query.radiusKm || 10);
     const latitude = Number(req.query.latitude);
     const longitude = Number(req.query.longitude);
-    const originCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude) ? [longitude, latitude] : null;
+    const originCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude)
+      && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180
+      ? [longitude, latitude]
+      : null;
     if (dietary && !['veg', 'non-veg'].includes(dietary)) return res.status(400).json({ success: false, message: 'Unknown dietary filter.' });
     if (![0, 1, 2, 3].includes(priceLevel)) return res.status(400).json({ success: false, message: 'Unknown price filter.' });
     if (minimumRating < 0 || minimumRating > 5) return res.status(400).json({ success: false, message: 'Unknown rating filter.' });
-    if (!['newest', 'rating', 'deliveryTime'].includes(sort)) return res.status(400).json({ success: false, message: 'Unknown sorting option.' });
+    if (!['newest', 'rating', 'deliveryTime', 'distance'].includes(sort)) return res.status(400).json({ success: false, message: 'Unknown sorting option.' });
+    if (![5, 10, 25, 50].includes(radiusKm)) return res.status(400).json({ success: false, message: 'Unknown distance radius.' });
+    if ((req.query.latitude !== undefined || req.query.longitude !== undefined) && !originCoordinates) {
+      return res.status(400).json({ success: false, message: 'Both valid latitude and longitude are required.' });
+    }
     const clauses = [];
     if (location) clauses.push({ $or: [{ address: { $regex: escapeRegex(location), $options: 'i' } }, { formattedAddress: { $regex: escapeRegex(location), $options: 'i' } }] });
     if (cuisine) clauses.push({ cuisine: { $regex: escapeRegex(cuisine), $options: 'i' } });
@@ -80,7 +88,20 @@ router.get('/restaurants', async (req, res) => {
     }
     if (clauses.length) match.$and = clauses;
 
-    const restaurants = await Restaurant.find(match).sort({ createdAt: -1 }).limit(100).lean();
+    const restaurants = originCoordinates
+      ? await Restaurant.aggregate([
+        {
+          $geoNear: {
+            near: { type: 'Point', coordinates: originCoordinates },
+            distanceField: 'distanceMeters',
+            maxDistance: radiusKm * 1000,
+            spherical: true,
+            query: match,
+          },
+        },
+        { $limit: 100 },
+      ])
+      : await Restaurant.find(match).sort({ createdAt: -1 }).limit(100).lean();
     const ratings = await Review.aggregate([
       { $match: { restaurant: { $in: restaurants.map((item) => item._id) } } },
       { $group: { _id: '$restaurant', averageRating: { $avg: '$rating' }, reviewCount: { $sum: 1 } } },
@@ -97,6 +118,7 @@ router.get('/restaurants', async (req, res) => {
     if (priceLevel) results = results.filter((item) => item.priceLevel === priceLevel);
     if (sort === 'rating') results.sort((a, b) => (b.rating || 0) - (a.rating || 0));
     if (sort === 'deliveryTime') results.sort((a, b) => a.estimatedDeliveryMinutes - b.estimatedDeliveryMinutes);
+    if (sort === 'distance') results.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
     return res.json({ success: true, restaurants: results });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Failed to discover restaurants.' });
