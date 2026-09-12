@@ -25,6 +25,7 @@ const restaurantSchema = new mongoose.Schema(
       required: [true, 'Restaurant name is required'],
       trim: true,
     },
+    description: { type: String, trim: true, default: '' },
     franchiseName: {
       type: String,
       trim: true,
@@ -33,6 +34,11 @@ const restaurantSchema = new mongoose.Schema(
     logoUrl: {
       type: String,
       default: '',
+    },
+    demoFixtureKey: {
+      type: String,
+      unique: true,
+      sparse: true,
     },
     phone: {
       type: String,

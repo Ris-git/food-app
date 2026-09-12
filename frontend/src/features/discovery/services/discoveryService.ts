@@ -2,6 +2,7 @@ import { apiRequest } from '../../../services/api';
 
 export type PublicRestaurant = {
   id: string;
+  isDemo: boolean;
   name: string;
   logoUrl: string;
   description: string;

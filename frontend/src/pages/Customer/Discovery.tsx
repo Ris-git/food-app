@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { discoveryService, type DiscoveryCategory, type PublicRestaurant } from '../../features/discovery/services/discoveryService';
 
 const fallbackCategories: DiscoveryCategory[] = [
@@ -14,6 +14,7 @@ const fallbackCategories: DiscoveryCategory[] = [
 
 export default function Discovery({ landing = false }: { landing?: boolean }) {
   const navigate = useNavigate();
+  const route = useLocation();
   const [params] = useSearchParams();
   const [location, setLocation] = useState(params.get('location') || localStorage.getItem('deliveryLocation') || '');
   const [search, setSearch] = useState(params.get('search') || '');
@@ -23,7 +24,7 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
   const [minimumRating, setMinimumRating] = useState(Number(params.get('minimumRating') || 0));
   const [priceLevel, setPriceLevel] = useState(Number(params.get('priceLevel') || 0));
   const [sort, setSort] = useState(params.get('sort') || 'newest');
-  const [radiusKm, setRadiusKm] = useState(10);
+  const [radiusKm, setRadiusKm] = useState(Number(params.get('radiusKm') || 10));
   const [locating, setLocating] = useState(false);
   const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(() => {
     try {
@@ -42,14 +43,31 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
     discoveryService.categories().then((response) => setCategories(response.categories)).catch(() => setCategories(fallbackCategories));
   }, []);
   useEffect(() => {
+    let active = true;
     const load = () => discoveryService.restaurants({ location, search, category: selectedCategory, openNow, dietary, minimumRating, priceLevel, sort, latitude: coordinates?.latitude, longitude: coordinates?.longitude, radiusKm: coordinates ? radiusKm : undefined })
-      .then((response) => { setRestaurants(response.restaurants); setError(''); })
-      .catch((reason: Error) => setError(reason.message))
-      .finally(() => setLoading(false));
+      .then((response) => { if (active) { setRestaurants(response.restaurants); setError(''); } })
+      .catch((reason: Error) => { if (active) setError(reason.message); })
+      .finally(() => { if (active) setLoading(false); });
     void load();
     const timer = window.setInterval(() => void load(), 60_000);
-    return () => window.clearInterval(timer);
+    return () => { active = false; window.clearInterval(timer); };
   }, [location, search, selectedCategory, openNow, dietary, minimumRating, priceLevel, sort, coordinates, radiusKm]);
+
+  useEffect(() => {
+    if (route.pathname !== '/restaurants') return;
+    const next = new URLSearchParams();
+    if (location) next.set('location', location);
+    if (search) next.set('search', search);
+    if (selectedCategory) next.set('category', selectedCategory);
+    if (openNow) next.set('openNow', 'true');
+    if (dietary) next.set('dietary', dietary);
+    if (minimumRating) next.set('minimumRating', String(minimumRating));
+    if (priceLevel) next.set('priceLevel', String(priceLevel));
+    if (coordinates) next.set('radiusKm', String(radiusKm));
+    if (sort !== 'newest') next.set('sort', sort);
+    const searchString = next.toString() ? `?${next}` : '';
+    if (route.search !== searchString) navigate(`/restaurants${searchString}`, { replace: true });
+  }, [route.pathname, route.search, navigate, location, search, selectedCategory, openNow, dietary, minimumRating, priceLevel, radiusKm, coordinates, sort]);
 
   const useCurrentLocation = () => {
     if (!navigator.geolocation) return setError('Location is not supported by this browser.');
@@ -57,6 +75,8 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         const nextCoordinates = { latitude: coords.latitude, longitude: coords.longitude };
+        setLocation('');
+        localStorage.removeItem('deliveryLocation');
         setCoordinates(nextCoordinates);
         sessionStorage.setItem('foodyCoordinates', JSON.stringify(nextCoordinates));
         setSort('distance');
@@ -74,11 +94,19 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
   };
 
   const clearFilters = () => {
+    setLocation('');
+    setSearch('');
+    setSelectedCategory('');
     setOpenNow(false);
     setDietary('');
     setMinimumRating(0);
     setPriceLevel(0);
+    setRadiusKm(10);
     setSort('newest');
+    setCoordinates(null);
+    sessionStorage.removeItem('foodyCoordinates');
+    localStorage.removeItem('deliveryLocation');
+    navigate(landing ? '/' : '/restaurants', { replace: true });
   };
 
   const submit = (event: React.FormEvent) => {
@@ -92,6 +120,7 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
     if (dietary) next.set('dietary', dietary);
     if (minimumRating) next.set('minimumRating', String(minimumRating));
     if (priceLevel) next.set('priceLevel', String(priceLevel));
+    if (coordinates) next.set('radiusKm', String(radiusKm));
     if (sort !== 'newest') next.set('sort', sort);
     navigate(`/restaurants?${next}`);
   };
@@ -102,8 +131,8 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
       <h1>Good food is closer than you think.</h1>
       <p>Choose your area and discover approved Foody restaurants near you.</p>
       <form className="discovery-search" onSubmit={submit}>
-        <input aria-label="Delivery location" placeholder="Enter area or city" value={location} onChange={(event) => setLocation(event.target.value)} />
-        <input aria-label="Search restaurants" placeholder="Search restaurant or cuisine" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <input aria-label="Delivery location" placeholder="Enter area or city" value={location} onChange={(event) => { setLocation(event.target.value); clearCurrentLocation(); }} />
+        <input aria-label="Search restaurants or dishes" placeholder="Search restaurant, cuisine or dish" value={search} onChange={(event) => setSearch(event.target.value)} />
         <button>Find food</button>
       </form>
       <div className="location-actions">
@@ -113,7 +142,8 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
     </section>}
 
     <section className="discovery-section">
-      <div className="section-heading"><div><p className="eyebrow">EXPLORE</p><h2>What are you craving?</h2></div>{!landing && <form onSubmit={submit} className="compact-search"><input placeholder="Area or city" value={location} onChange={(event) => setLocation(event.target.value)} /><input placeholder="Search" value={search} onChange={(event) => setSearch(event.target.value)} /><button>Search</button></form>}</div>
+      <div className="section-heading"><div><p className="eyebrow">EXPLORE</p><h2>What are you craving?</h2></div>{!landing && <form onSubmit={submit} className="compact-search"><input aria-label="Area or city" placeholder="Area or city" value={location} onChange={(event) => { setLocation(event.target.value); clearCurrentLocation(); }} /><input aria-label="Search restaurant, cuisine or dish" placeholder="Restaurant, cuisine or dish" value={search} onChange={(event) => setSearch(event.target.value)} /><button>Search</button></form>}</div>
+      {!landing && <div className="location-actions"><button type="button" className="location-button" onClick={useCurrentLocation} disabled={locating}>{locating ? 'Finding your location…' : coordinates ? 'Refresh current location' : 'Use my current location'}</button>{coordinates && <><span>Within {radiusKm} km</span><button type="button" className="location-button" onClick={clearCurrentLocation}>Clear location</button></>}</div>}
       <div className="cuisine-row">
         <button className={!selectedCategory ? 'active' : ''} onClick={() => setSelectedCategory('')}>All</button>
         {categories.map((category) => <button key={category.slug} className={selectedCategory === category.slug ? 'active' : ''} onClick={() => setSelectedCategory(category.slug)}>{category.name}</button>)}
@@ -134,7 +164,7 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
       {error && <div className="state-card error">{error}</div>}
       {loading ? <div className="state-card">Finding restaurants…</div> : restaurants.length ? <div className="restaurant-grid">{restaurants.map((restaurant) => <Link className={`restaurant-card ${restaurant.isOpenNow ? '' : 'closed'}`} to={`/restaurants/${restaurant.id}`} key={restaurant.id}>
         <div className="restaurant-image">{restaurant.logoUrl ? <img src={restaurant.logoUrl} alt="" /> : <span>{restaurant.name.charAt(0)}</span>}<b className={`status ${restaurant.isOpenNow ? 'open' : ''}`}>{restaurant.operationalStatus.replaceAll('_', ' ')}</b></div>
-        <div className="restaurant-card-body"><h3>{restaurant.name}</h3><p>{restaurant.cuisines.join(' · ') || 'Multi-cuisine'}</p><p className="address">{restaurant.address}</p><div className="restaurant-facts"><span>{restaurant.rating ? `★ ${restaurant.rating} (${restaurant.reviewCount})` : 'New'}</span><span>{restaurant.estimatedDeliveryMinutes} min</span>{restaurant.priceRange && <span>{restaurant.priceRange}</span>}{restaurant.distanceKm !== null && <span>{restaurant.distanceKm} km</span>}</div><div className="restaurant-meta"><span>{restaurant.isOpenNow ? 'Accepting orders' : 'Currently closed'}</span><span>View menu →</span></div></div>
+        <div className="restaurant-card-body"><h3>{restaurant.name} {restaurant.isDemo && <span className="demo-badge">Demo</span>}</h3><p>{restaurant.cuisines.join(' · ') || 'Multi-cuisine'}</p><p className="address">{restaurant.address}</p><div className="restaurant-facts"><span>{restaurant.rating ? `★ ${restaurant.rating} (${restaurant.reviewCount})` : 'New'}</span><span>{restaurant.estimatedDeliveryMinutes} min</span>{restaurant.priceRange && <span>{restaurant.priceRange}</span>}{restaurant.distanceKm !== null && <span>{restaurant.distanceKm} km</span>}</div><div className="restaurant-meta"><span>{restaurant.isOpenNow ? 'Accepting orders' : 'Currently closed'}</span><span>View menu →</span></div></div>
       </Link>)}</div> : <div className="state-card">No approved restaurants match this search yet.</div>}
     </section>
 

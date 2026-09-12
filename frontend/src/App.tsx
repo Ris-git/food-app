@@ -75,7 +75,7 @@ export default function App() {
           {(user.role === 'admin' || user.role === 'superAdmin') && <button style={menuStyle} onClick={() => go('/admin')}>Admin Console</button>}
           {!['restaurant', 'admin', 'superAdmin'].includes(user.role) && <button style={menuStyle} onClick={() => go('/partner')}>Partner Application</button>}
           <button style={{ ...menuStyle, color: '#B91C1C' }} onClick={async () => { await logout(); go('/'); }}>Log out</button>
-        </div>}</div> : <><Link className="btn-ghost" to="/partner">Partner with us</Link><Link className="btn-outline-pill" to="/signup">Sign up</Link><Link className="btn-mint-pill" to="/login">Sign in</Link></>}
+        </div>}</div> : <><Link className="btn-ghost" to="/partner">Partner with us</Link>{route.pathname === '/' ? <Link className="btn-mint-pill" to="/signup">Get started</Link> : <><Link className="btn-outline-pill" to="/signup">Sign up</Link><Link className="btn-mint-pill" to="/login">Sign in</Link></>}</>}
       </nav>
     </header>
 

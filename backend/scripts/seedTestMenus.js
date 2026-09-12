@@ -32,7 +32,7 @@ async function run() {
   }
 
   for (const user of users) {
-    const restaurants = await Restaurant.find({ user: user._id, lifecycleStatus: 'ACTIVE' }).select('_id name');
+    const restaurants = await Restaurant.find({ user: user._id, lifecycleStatus: 'ACTIVE', demoFixtureKey: { $exists: false } }).select('_id name');
     for (const restaurant of restaurants) {
       const operations = MENU.map((item) => ({
         updateOne: {

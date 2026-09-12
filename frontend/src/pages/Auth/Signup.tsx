@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../features/auth/context/AuthContext';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
+import { Link } from 'react-router-dom';
 
 export const Signup: React.FC = () => {
   const { signup, isLoading } = useAuth();
@@ -26,8 +27,8 @@ export const Signup: React.FC = () => {
     try {
       await signup(formData);
       setMessage('Account created! Please check your email to verify your account.');
-    } catch (err: any) {
-      setError(err.message || 'Signup failed');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Signup failed');
     }
   };
 
@@ -46,6 +47,7 @@ export const Signup: React.FC = () => {
           Sign Up
         </Button>
       </form>
+      <p style={{ marginTop: '18px', color: '#475569', textAlign: 'center', fontSize: '14px' }}>Already have an account? <Link to="/login" style={{ color: '#047857', fontWeight: 700 }}>Sign in</Link></p>
     </div>
   );
 };

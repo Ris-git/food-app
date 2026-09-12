@@ -17,6 +17,7 @@ const safeRestaurant = (restaurant, rating, menuSummary, originCoordinates) => {
   const priceLevel = priceLevelForAverage(menuSummary?.averagePrice);
   return {
     id: restaurant._id,
+    isDemo: Boolean(restaurant.demoFixtureKey),
     name: restaurant.name,
     logoUrl: restaurant.logoUrl || '',
     description: restaurant.description || '',
@@ -64,9 +65,28 @@ router.get('/restaurants', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Both valid latitude and longitude are required.' });
     }
     const clauses = [];
-    if (location) clauses.push({ $or: [{ address: { $regex: escapeRegex(location), $options: 'i' } }, { formattedAddress: { $regex: escapeRegex(location), $options: 'i' } }] });
+    if (location) {
+      const terms = [...new Set([location, location.replace(/bangalore/gi, 'Bengaluru'), location.replace(/bengaluru/gi, 'Bangalore')])];
+      clauses.push({ $or: terms.flatMap((term) => [
+        { address: { $regex: escapeRegex(term), $options: 'i' } },
+        { formattedAddress: { $regex: escapeRegex(term), $options: 'i' } },
+      ]) });
+    }
     if (cuisine) clauses.push({ cuisine: { $regex: escapeRegex(cuisine), $options: 'i' } });
-    if (search) clauses.push({ $or: [{ name: { $regex: escapeRegex(search), $options: 'i' } }, { cuisine: { $regex: escapeRegex(search), $options: 'i' } }] });
+    if (search) {
+      const menuRestaurantIds = await MenuItem.distinct('restaurant', {
+        isAvailable: true,
+        $or: [
+          { title: { $regex: escapeRegex(search), $options: 'i' } },
+          { description: { $regex: escapeRegex(search), $options: 'i' } },
+        ],
+      });
+      clauses.push({ $or: [
+        { name: { $regex: escapeRegex(search), $options: 'i' } },
+        { cuisine: { $regex: escapeRegex(search), $options: 'i' } },
+        { _id: { $in: menuRestaurantIds } },
+      ] });
+    }
     if (categorySlug) {
       const category = discoveryCategories.find((item) => item.slug === categorySlug);
       if (!category) return res.status(400).json({ success: false, message: 'Unknown discovery category.' });

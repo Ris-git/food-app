@@ -30,8 +30,12 @@
 .discovery-section, .menu-shell { background: #fff; border-radius: 24px; padding: 28px; margin: 22px 0; }
 .section-heading { display: flex; justify-content: space-between; align-items: end; gap: 20px; }
 .section-heading h2 { margin: 0; font-size: 30px; }
-.section-heading a, .back-link { color: #047857; font-weight: 800; text-decoration: none; }
-.compact-search { display: flex; gap: 8px; }
+.section-heading a { color: #047857; font-weight: 800; text-decoration: none; }
+.back-link { display: inline-flex; align-items: center; padding: 10px 16px; border: 2px solid #a7f3d0; border-radius: 999px; background: #fff; color: #064e3b; font-weight: 800; text-decoration: none; box-shadow: 0 4px 16px rgba(0,0,0,.14); }
+.back-link:hover, .back-link:focus-visible { background: #ecfdf5; outline: 3px solid #10b981; outline-offset: 2px; }
+.compact-search { display: flex; flex: 1; max-width: 700px; min-width: 0; gap: 8px; }
+.compact-search input:first-child { flex: 1 1 35%; }
+.compact-search input:nth-child(2) { flex: 1.4 1 50%; }
 .cuisine-row { display: flex; gap: 9px; overflow-x: auto; padding-top: 20px; }
 .cuisine-row button { border: 1px solid #cbd5e1; border-radius: 999px; padding: 10px 18px; background: #fff; white-space: nowrap; cursor: pointer; }
 .cuisine-row button.active { background: #047857; color: #fff; border-color: #047857; }
@@ -40,7 +44,7 @@
 .discovery-filters select { min-width: 0; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; padding: 10px; font: inherit; color: #0f172a; }
 .discovery-filters .filter-check { display: flex; flex-direction: row; align-items: center; gap: 8px; min-height: 42px; }
 .filter-check input { accent-color: #047857; }
-.clear-filters { min-height: 42px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: #475569; font-weight: 800; cursor: pointer; }
+.clear-filters { min-height: 42px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: #475569; font-weight: 800; white-space: nowrap; cursor: pointer; }
 .restaurant-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 18px; margin-top: 22px; }
 .restaurant-card { overflow: hidden; color: inherit; text-decoration: none; border: 1px solid #e2e8f0; border-radius: 18px; transition: transform .2s, box-shadow .2s; }
 .restaurant-card:hover { transform: translateY(-4px); box-shadow: 0 16px 30px rgba(15,23,42,.12); }
@@ -52,6 +56,7 @@
 .status.open { background: #ecfdf5; color: #047857; }
 .restaurant-card-body { padding: 18px; }
 .restaurant-card h3 { margin: 0 0 6px; }
+.demo-badge { display: inline-block; vertical-align: middle; margin-left: 5px; padding: 2px 8px; border-radius: 999px; background: #ecfdf5; color: #065f46; font-size: .72rem; font-weight: 800; letter-spacing: .02em; }
 .restaurant-card p { margin: 5px 0; color: #64748b; }
 .restaurant-card .address { min-height: 40px; }
 .restaurant-facts { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
@@ -106,6 +111,10 @@
 .food-dot { display: inline-block; width: 8px; height: 8px; border: 2px solid #16a34a; }
 .food-dot.nonveg { border-color: #dc2626; }
 
+@media (max-width: 1100px) {
+  .discovery-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 @media (max-width: 800px) {
   .header { padding: 18px 24px; }
   .header-link, .btn-ghost, .btn-outline-pill { display: none; }
@@ -113,7 +122,7 @@
   .discovery-search, .restaurant-grid, .menu-grid { grid-template-columns: 1fr; }
   .discovery-search button { padding: 15px; }
   .section-heading { align-items: stretch; flex-direction: column; }
-  .compact-search { flex-direction: column; }
+  .compact-search { flex-direction: column; max-width: none; }
   .compact-search button { padding: 12px; }
   .discovery-filters { grid-template-columns: 1fr 1fr; }
   .restaurant-banner { padding: 24px; align-items: flex-start; }
