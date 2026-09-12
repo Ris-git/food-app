@@ -43,6 +43,8 @@ async function run() {
     await check('search=Green%20Goddess', ['Green Bowl']);
     await check('search=pizza', ['Pizza Corner']);
     await check('category=biryani', ['Biryani House']);
+    await check('category=pizza', ['Pizza Corner']);
+    await check('category=healthy', ['Green Bowl']);
     await check('category=snacks', ['Biryani House', 'Green Bowl', 'Spice Route']);
     await check('dietary=non-veg', ['Biryani House', 'Pizza Corner', 'Spice Route']);
     await check('priceLevel=1', ['Green Bowl', 'Spice Route']);

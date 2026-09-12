@@ -3,14 +3,13 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { discoveryService, type DiscoveryCategory, type PublicRestaurant } from '../../features/discovery/services/discoveryService';
 
 const fallbackCategories: DiscoveryCategory[] = [
-  { slug: 'vegetarian', name: 'Vegetarian' },
-  { slug: 'non-vegetarian', name: 'Non-Vegetarian' },
   { slug: 'biryani', name: 'Biryani' },
   { slug: 'north-indian', name: 'North Indian' },
+  { slug: 'pizza', name: 'Pizza' },
+  { slug: 'healthy', name: 'Healthy' },
   { slug: 'desserts', name: 'Desserts' },
-  { slug: 'beverages', name: 'Beverages' },
-  { slug: 'snacks', name: 'Snacks' },
 ];
+const featuredCategorySlugs = new Set(fallbackCategories.map((category) => category.slug));
 
 export default function Discovery({ landing = false }: { landing?: boolean }) {
   const navigate = useNavigate();
@@ -38,6 +37,14 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
   const [categories, setCategories] = useState<DiscoveryCategory[]>(fallbackCategories);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  const featuredCategories = categories.filter((category) => featuredCategorySlugs.has(category.slug));
+  const activeCategoryName = categories.find((category) => category.slug === selectedCategory)?.name || selectedCategory;
+  const advancedCount = Number(priceLevel > 0) + Number(minimumRating > 0) + Number(Boolean(coordinates && radiusKm !== 10));
+  const activeFilterCount = Number(Boolean(location)) + Number(Boolean(search)) + Number(Boolean(selectedCategory))
+    + Number(openNow) + Number(Boolean(dietary)) + advancedCount + Number(sort !== 'newest');
+  const hasRatings = restaurants.some((restaurant) => restaurant.reviewCount > 0);
 
   useEffect(() => {
     discoveryService.categories().then((response) => setCategories(response.categories)).catch(() => setCategories(fallbackCategories));
@@ -93,6 +100,11 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
     if (sort === 'distance') setSort('newest');
   };
 
+  const clearArea = () => {
+    setLocation('');
+    localStorage.removeItem('deliveryLocation');
+  };
+
   const clearFilters = () => {
     setLocation('');
     setSearch('');
@@ -146,21 +158,37 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
       {!landing && <div className="location-actions"><button type="button" className="location-button" onClick={useCurrentLocation} disabled={locating}>{locating ? 'Finding your location…' : coordinates ? 'Refresh current location' : 'Use my current location'}</button>{coordinates && <><span>Within {radiusKm} km</span><button type="button" className="location-button" onClick={clearCurrentLocation}>Clear location</button></>}</div>}
       <div className="cuisine-row">
         <button className={!selectedCategory ? 'active' : ''} onClick={() => setSelectedCategory('')}>All</button>
-        {categories.map((category) => <button key={category.slug} className={selectedCategory === category.slug ? 'active' : ''} onClick={() => setSelectedCategory(category.slug)}>{category.name}</button>)}
+        {featuredCategories.map((category) => <button key={category.slug} className={selectedCategory === category.slug ? 'active' : ''} onClick={() => setSelectedCategory(category.slug)}>{category.name}</button>)}
       </div>
-      <div className="discovery-filters" aria-label="Restaurant filters">
-        <label className="filter-check"><input type="checkbox" checked={openNow} onChange={(event) => setOpenNow(event.target.checked)} /> Open now</label>
-        <label>Food type<select value={dietary} onChange={(event) => setDietary(event.target.value)}><option value="">All</option><option value="veg">Vegetarian</option><option value="non-veg">Non-vegetarian</option></select></label>
-        <label>Rating<select value={minimumRating} onChange={(event) => setMinimumRating(Number(event.target.value))}><option value={0}>Any rating</option><option value={4}>4+ stars</option><option value={3}>3+ stars</option></select></label>
+      <div className="discovery-filter-bar" aria-label="Restaurant filters">
+        <button type="button" className={`quick-filter ${openNow ? 'active' : ''}`} aria-pressed={openNow} onClick={() => setOpenNow(!openNow)}>Open now</button>
+        <button type="button" className={`quick-filter ${dietary === 'veg' ? 'active' : ''}`} aria-pressed={dietary === 'veg'} onClick={() => setDietary(dietary === 'veg' ? '' : 'veg')}>Veg only</button>
+        <label className="quick-sort">Sort <select value={sort} onChange={(event) => setSort(event.target.value)}><option value="newest">Newest</option><option value="rating">Top rated</option><option value="deliveryTime">Fastest delivery</option>{coordinates && <option value="distance">Nearest first</option>}</select></label>
+        <button type="button" className={`quick-filter more-filters ${advancedOpen || advancedCount ? 'active' : ''}`} aria-expanded={advancedOpen} aria-controls="more-restaurant-filters" onClick={() => setAdvancedOpen(!advancedOpen)}>Filters{advancedCount ? ` (${advancedCount})` : ''} {advancedOpen ? '−' : '+'}</button>
+      </div>
+      {advancedOpen && <div className="advanced-filters" id="more-restaurant-filters">
         <label>Price<select value={priceLevel} onChange={(event) => setPriceLevel(Number(event.target.value))}><option value={0}>Any price</option><option value={1}>₹ Budget</option><option value={2}>₹₹ Moderate</option><option value={3}>₹₹₹ Premium</option></select></label>
-        <label>Distance<select value={radiusKm} disabled={!coordinates} onChange={(event) => setRadiusKm(Number(event.target.value))}><option value={5}>Within 5 km</option><option value={10}>Within 10 km</option><option value={25}>Within 25 km</option><option value={50}>Within 50 km</option></select></label>
-        <label>Sort by<select value={sort} onChange={(event) => setSort(event.target.value)}><option value="newest">Newest</option><option value="rating">Rating</option><option value="deliveryTime">Delivery time</option>{coordinates && <option value="distance">Nearest first</option>}</select></label>
-        <button type="button" className="clear-filters" onClick={clearFilters}>Clear filters</button>
-      </div>
+        {(hasRatings || minimumRating > 0) && <label>Rating<select value={minimumRating} onChange={(event) => setMinimumRating(Number(event.target.value))}><option value={0}>Any rating</option><option value={4}>4+ stars</option><option value={3}>3+ stars</option></select></label>}
+        {coordinates && <label>Distance<select value={radiusKm} onChange={(event) => setRadiusKm(Number(event.target.value))}><option value={5}>Within 5 km</option><option value={10}>Within 10 km</option><option value={25}>Within 25 km</option><option value={50}>Within 50 km</option></select></label>}
+        {!hasRatings && !minimumRating && <p>Rating filters will appear when restaurants receive reviews.</p>}
+        {!coordinates && <p>Use your current location to filter by distance.</p>}
+      </div>}
     </section>
 
     <section className="discovery-section">
       <div className="section-heading"><div><p className="eyebrow">NEAR YOU</p><h2>{location ? `Restaurants around ${location}` : 'Approved restaurants on Foody'}</h2></div>{landing && <Link to="/restaurants">View all</Link>}</div>
+      <div className="discovery-results-meta"><span>{loading ? 'Finding restaurants…' : `${restaurants.length} ${restaurants.length === 1 ? 'restaurant' : 'restaurants'} found`}</span>{activeFilterCount > 0 && <button type="button" onClick={clearFilters}>Reset all</button>}</div>
+      {activeFilterCount > 0 && <div className="active-filter-row" aria-label="Applied filters">
+        {location && <button type="button" onClick={clearArea}>Area: {location} ×</button>}
+        {search && <button type="button" onClick={() => setSearch('')}>Search: {search} ×</button>}
+        {selectedCategory && <button type="button" onClick={() => setSelectedCategory('')}>{activeCategoryName} ×</button>}
+        {openNow && <button type="button" onClick={() => setOpenNow(false)}>Open now ×</button>}
+        {dietary && <button type="button" onClick={() => setDietary('')}>{dietary === 'veg' ? 'Veg only' : 'Non-vegetarian'} ×</button>}
+        {priceLevel > 0 && <button type="button" onClick={() => setPriceLevel(0)}>{'₹'.repeat(priceLevel)} price ×</button>}
+        {minimumRating > 0 && <button type="button" onClick={() => setMinimumRating(0)}>{minimumRating}+ stars ×</button>}
+        {coordinates && radiusKm !== 10 && <button type="button" onClick={() => setRadiusKm(10)}>Within {radiusKm} km ×</button>}
+        {sort !== 'newest' && <button type="button" onClick={() => setSort('newest')}>Sort: {sort === 'rating' ? 'Top rated' : sort === 'distance' ? 'Nearest first' : 'Fastest delivery'} ×</button>}
+      </div>}
       {error && <div className="state-card error">{error}</div>}
       {loading ? <div className="state-card">Finding restaurants…</div> : restaurants.length ? <div className="restaurant-grid">{restaurants.map((restaurant) => <Link className={`restaurant-card ${restaurant.isOpenNow ? '' : 'closed'}`} to={`/restaurants/${restaurant.id}`} key={restaurant.id}>
         <div className="restaurant-image">{restaurant.logoUrl ? <img src={restaurant.logoUrl} alt="" /> : <span>{restaurant.name.charAt(0)}</span>}<b className={`status ${restaurant.isOpenNow ? 'open' : ''}`}>{restaurant.operationalStatus.replaceAll('_', ' ')}</b></div>
