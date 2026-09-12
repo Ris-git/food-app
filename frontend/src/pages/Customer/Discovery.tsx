@@ -9,7 +9,6 @@ const fallbackCategories: DiscoveryCategory[] = [
   { slug: 'healthy', name: 'Healthy' },
   { slug: 'desserts', name: 'Desserts' },
 ];
-const featuredCategorySlugs = new Set(fallbackCategories.map((category) => category.slug));
 
 export default function Discovery({ landing = false }: { landing?: boolean }) {
   const navigate = useNavigate();
@@ -39,8 +38,9 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
   const [error, setError] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
-  const featuredCategories = categories.filter((category) => featuredCategorySlugs.has(category.slug));
-  const activeCategoryName = categories.find((category) => category.slug === selectedCategory)?.name || selectedCategory;
+  const featuredCategories = fallbackCategories;
+  const activeCategoryName = fallbackCategories.find((category) => category.slug === selectedCategory)?.name
+    || categories.find((category) => category.slug === selectedCategory)?.name || selectedCategory;
   const advancedCount = Number(priceLevel > 0) + Number(minimumRating > 0) + Number(Boolean(coordinates && radiusKm !== 10));
   const activeFilterCount = Number(Boolean(location)) + Number(Boolean(search)) + Number(Boolean(selectedCategory))
     + Number(openNow) + Number(Boolean(dietary)) + advancedCount + Number(sort !== 'newest');
@@ -51,7 +51,13 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
   }, []);
   useEffect(() => {
     let active = true;
-    const load = () => discoveryService.restaurants({ location, search, category: selectedCategory, openNow, dietary, minimumRating, priceLevel, sort, latitude: coordinates?.latitude, longitude: coordinates?.longitude, radiusKm: coordinates ? radiusKm : undefined })
+    const load = () => discoveryService.restaurants({
+      location, search,
+      category: selectedCategory === 'pizza' || selectedCategory === 'healthy' ? undefined : selectedCategory,
+      cuisine: selectedCategory === 'pizza' ? 'Pizza' : selectedCategory === 'healthy' ? 'Healthy' : undefined,
+      openNow, dietary, minimumRating, priceLevel, sort,
+      latitude: coordinates?.latitude, longitude: coordinates?.longitude, radiusKm: coordinates ? radiusKm : undefined,
+    })
       .then((response) => { if (active) { setRestaurants(response.restaurants); setError(''); } })
       .catch((reason: Error) => { if (active) setError(reason.message); })
       .finally(() => { if (active) setLoading(false); });
