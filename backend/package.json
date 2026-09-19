@@ -29,6 +29,7 @@
     "verify:customer-ordering": "node scripts/verifyCustomerOrdering.js",
     "seed:superadmin": "node scripts/seedSuperAdmin.js",
     "seed:admin-test-accounts": "node scripts/seedAdminTestAccounts.js",
+    "seed:customer-accounts": "node scripts/seedCustomerTestAccounts.js",
     "migrate:organizations": "node scripts/backfillOrganizations.js",
     "test:email": "node scripts/testEmail.js",
     "test": "echo \"Error: no test specified\" && exit 1"
