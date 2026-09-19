@@ -4,11 +4,20 @@ require('dotenv').config();
 // Create transporter using Gmail SMTP and App Password from environment variables
 const transporter = nodemailer.createTransport({
   service: 'gmail',
+  // Never let an SMTP outage hold an HTTP request open until the hosting
+  // proxy returns a 502. Fail the delivery attempt quickly and log it.
+  connectionTimeout: 10_000,
+  greetingTimeout: 10_000,
+  socketTimeout: 15_000,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
 });
+
+const publicFrontendUrl = () => String(
+  process.env.FRONTEND_URL || process.env.APP_BASE_URL || 'http://localhost:5173'
+).replace(/\/$/, '');
 
 /**
  * Sends a generic email
@@ -16,6 +25,25 @@ const transporter = nodemailer.createTransport({
  */
 const sendEmail = async ({ to, subject, html, text }) => {
   try {
+    // Render's free services block outbound SMTP ports. Resend uses HTTPS
+    // (port 443), so use it in production whenever an API key is configured.
+    if (process.env.RESEND_API_KEY) {
+      const from = process.env.EMAIL_FROM || `${process.env.EMAIL_FROM_NAME || 'Foody App'} <onboarding@resend.dev>`;
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ from, to: [to], subject, html, ...(text ? { text } : {}) }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.message || `Resend returned ${response.status}.`);
+      console.log('✉️ Email accepted by Resend. Message ID:', result.id);
+      return result;
+    }
+
     const info = await transporter.sendMail({
       from: `"${process.env.EMAIL_FROM_NAME || 'Foody App'}" <${process.env.EMAIL_USER}>`,
       to,
@@ -23,7 +51,7 @@ const sendEmail = async ({ to, subject, html, text }) => {
       text,
       html,
     });
-    console.log('✉️ Email sent successfully! Message ID:', info.messageId);
+    console.log('✉️ Email sent successfully through SMTP. Message ID:', info.messageId);
     return info;
   } catch (error) {
     console.error('❌ Email Sending Failed:', error.message);
@@ -37,7 +65,7 @@ const sendEmail = async ({ to, subject, html, text }) => {
  * @param {string} token - Verification token
  */
 const sendVerificationEmail = async (toEmail, token) => {
-  const verificationLink = `${process.env.APP_BASE_URL || 'http://localhost:3000'}/auth/verify-email?token=${token}`;
+  const verificationLink = `${publicFrontendUrl()}/verify-email?token=${encodeURIComponent(token)}`;
   
   const subject = 'Verify Your Foody Account';
   const html = `
@@ -87,6 +115,7 @@ const sendResetPasswordEmail = async (toEmail, token) => {
 
 module.exports = {
   transporter,
+  publicFrontendUrl,
   sendEmail,
   sendVerificationEmail,
   sendResetPasswordEmail,

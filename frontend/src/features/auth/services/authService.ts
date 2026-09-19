@@ -42,6 +42,13 @@ export const authService = {
     });
   },
 
+  async resendVerification(email: string) {
+    return await apiRequest('/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
   async getMe(): Promise<{ success: boolean; user: User; accessToken?: string }> {
     return (await apiRequest<{ success: boolean; user: User; accessToken?: string }>('/auth/me', {
       method: 'GET',

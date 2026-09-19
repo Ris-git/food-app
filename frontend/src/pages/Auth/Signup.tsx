@@ -3,6 +3,7 @@ import { useAuth } from '../../features/auth/context/AuthContext';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import { Link } from 'react-router-dom';
+import { authService } from '../../features/auth/services/authService';
 
 export const Signup: React.FC = () => {
   const { signup, isLoading } = useAuth();
@@ -15,6 +16,8 @@ export const Signup: React.FC = () => {
   });
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [submittedEmail, setSubmittedEmail] = useState('');
+  const [resending, setResending] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -25,10 +28,25 @@ export const Signup: React.FC = () => {
     setError(null);
     setMessage(null);
     try {
-      await signup(formData);
-      setMessage('Account created! Please check your email to verify your account.');
+      const response = await signup(formData);
+      setSubmittedEmail(formData.email);
+      setMessage(response.message || 'Verification email requested. Check your inbox and spam folder.');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Signup failed');
+    }
+  };
+
+  const resendVerification = async () => {
+    if (!submittedEmail) return;
+    setResending(true);
+    setError(null);
+    try {
+      const response = await authService.resendVerification(submittedEmail);
+      setMessage(response.message || 'A new verification email has been requested.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to resend verification email.');
+    } finally {
+      setResending(false);
     }
   };
 
@@ -47,6 +65,7 @@ export const Signup: React.FC = () => {
           Sign Up
         </Button>
       </form>
+      {submittedEmail && <button type="button" disabled={resending} onClick={resendVerification} style={{ width: '100%', marginTop: '12px', border: 0, background: 'transparent', color: '#047857', fontWeight: 800, cursor: resending ? 'wait' : 'pointer' }}>{resending ? 'Requesting another email…' : 'Resend verification email'}</button>}
       <p style={{ marginTop: '18px', color: '#475569', textAlign: 'center', fontSize: '14px' }}>Already have an account? <Link to="/login" style={{ color: '#047857', fontWeight: 700 }}>Sign in</Link></p>
     </div>
   );

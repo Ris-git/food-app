@@ -25,6 +25,21 @@ const crypto = require('crypto');
 const { jwtAuthMiddleware } = require("../middlewares/authMiddleware");
 const { sendVerificationEmail, sendResetPasswordEmail } = require("../services/email.service");
 
+// Email delivery belongs outside the request/response critical path. Render
+// can otherwise return a 502 while Gmail SMTP is still connecting.
+const queueEmail = (label, send) => {
+  setImmediate(() => {
+    Promise.resolve()
+      .then(send)
+      .catch((error) => console.error(`⚠️ ${label}:`, error.message));
+  });
+};
+
+const refreshVerificationToken = (user) => {
+  user.verificationToken = crypto.randomBytes(32).toString('hex');
+  user.verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+};
+
 // Signup logic to register a user
 router.post("/signup", authLimiter , signupValidationRules, validate, async (req, res) => {
   try {
@@ -36,6 +51,15 @@ router.post("/signup", authLimiter , signupValidationRules, validate, async (req
       if (process.env.NODE_ENV === 'development') {
         console.warn(`⚠️ [DEV MODE] Overwriting existing user '${email}' / '${username}' for testing...`);
         await User.deleteOne({ _id: existingUser._id });
+      } else if (existingUser.email === email.toLowerCase() && !existingUser.emailVerified && !existingUser.isVerified) {
+        refreshVerificationToken(existingUser);
+        await existingUser.save();
+        queueEmail('Failed to send verification email', () => sendVerificationEmail(existingUser.email, existingUser.verificationToken));
+        return res.status(202).json({
+          success: true,
+          verificationPending: true,
+          message: "This account is waiting for verification. A new verification email has been requested."
+        });
       } else {
         return res.status(400).json({
           success: false,
@@ -63,16 +87,12 @@ router.post("/signup", authLimiter , signupValidationRules, validate, async (req
     await newUser.save();
     console.log("User registered with verification token. Sending verification email...");
 
-    // Attempt to send verification email
-    try {
-      await sendVerificationEmail(newUser.email, verificationToken);
-    } catch (emailErr) {
-      console.error("⚠️ Failed to send verification email:", emailErr.message);
-    }
+    queueEmail('Failed to send verification email', () => sendVerificationEmail(newUser.email, verificationToken));
 
     return res.status(201).json({
       success: true,
-      message: "Account created. Verification pending."
+      verificationPending: true,
+      message: "Account created. Check your email for the verification link."
     });
 
   } catch (err) {
@@ -171,20 +191,11 @@ router.post("/resend-verification", authLimiter, async (req, res) => {
     user.verificationTokenExpires = newExpiry;
     await user.save();
 
-    // Send new verification email
-    try {
-      await sendVerificationEmail(user.email, newToken);
-    } catch (emailErr) {
-      console.error("⚠️ Failed to resend verification email:", emailErr.message);
-      return res.status(500).json({
-        success: false,
-        message: "Failed to send verification email. Please try again later."
-      });
-    }
+    queueEmail('Failed to resend verification email', () => sendVerificationEmail(user.email, newToken));
 
-    return res.status(200).json({
+    return res.status(202).json({
       success: true,
-      message: "Verification email resent successfully. Please check your inbox."
+      message: "A new verification email has been requested. Please check your inbox and spam folder."
     });
 
   } catch (err) {

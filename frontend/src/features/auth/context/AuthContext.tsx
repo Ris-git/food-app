@@ -11,7 +11,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
-  signup: (data: SignupData) => Promise<void>;
+  signup: (data: SignupData) => Promise<{ message?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -67,7 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signup = async (data: SignupData) => {
     setIsLoading(true);
     try {
-      await authService.signup(data);
+      return await authService.signup(data);
     } finally {
       setIsLoading(false);
     }

@@ -13,6 +13,12 @@ export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
+  const requestController = new AbortController();
+  const requestTimeout = window.setTimeout(() => requestController.abort(), 30_000);
+  if (options.signal) {
+    if (options.signal.aborted) requestController.abort();
+    else options.signal.addEventListener('abort', () => requestController.abort(), { once: true });
+  }
   const token = localStorage.getItem('accessToken');
 
   const headers: Record<string, string> = {
@@ -32,6 +38,7 @@ export async function apiRequest<T = any>(
     const response = await fetch(`${BASE_URL}${endpoint}`, {
       ...options,
       headers,
+      signal: requestController.signal,
     });
 
     let data: any = {};
@@ -50,6 +57,9 @@ export async function apiRequest<T = any>(
 
     return data;
   } catch (error: any) {
+    if (error?.name === 'AbortError') throw new Error('The server took too long to respond. Please try again.');
     throw new Error(error.message || 'Network connection error. Please check your connection.');
+  } finally {
+    window.clearTimeout(requestTimeout);
   }
 }

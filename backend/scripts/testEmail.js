@@ -5,15 +5,14 @@ const testEmail = async () => {
   try {
     const recipient = process.env.TEST_EMAIL_RECIPIENT || process.env.EMAIL_USER;
     
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error('❌ Missing EMAIL_USER or EMAIL_PASS in food-app/.env file!');
-      console.log('\nPlease add your Gmail credentials to food-app/.env:');
-      console.log('  EMAIL_USER=your_email@gmail.com');
-      console.log('  EMAIL_PASS=xxxx xxxx xxxx xxxx  (16-digit Gmail App Password)');
+    if (!recipient || (!process.env.RESEND_API_KEY && (!process.env.EMAIL_USER || !process.env.EMAIL_PASS))) {
+      console.error('❌ Missing email delivery configuration.');
+      console.log('\nFor Render free, configure RESEND_API_KEY, EMAIL_FROM and TEST_EMAIL_RECIPIENT.');
+      console.log('For local SMTP, configure EMAIL_USER and EMAIL_PASS.');
       process.exit(1);
     }
 
-    console.log(`Sending test email from ${process.env.EMAIL_USER} to ${recipient}...`);
+    console.log(`Sending test email through ${process.env.RESEND_API_KEY ? 'Resend HTTPS' : 'SMTP'} to ${recipient}...`);
 
     await sendEmail({
       to: recipient,
