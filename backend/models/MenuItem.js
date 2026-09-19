@@ -16,6 +16,7 @@ const menuItemSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    imageUrl: { type: String, trim: true, default: '' },
     price: {
       type: Number,
       required: [true, "Price is required"],

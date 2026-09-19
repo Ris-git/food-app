@@ -26,9 +26,12 @@ export type PublicMenuItem = {
   title: string;
   type: 'veg' | 'non-veg' | 'beverage' | 'dessert' | 'other';
   description?: string;
+  imageUrl?: string;
   price: number;
   isAvailable: boolean;
 };
+
+export type PublicReview = { id: string; rating: number; comment: string; customerName: string; createdAt: string };
 
 export type DiscoveryCategory = {
   slug: string;
@@ -52,6 +55,7 @@ export const discoveryService = {
     return apiRequest(`/public/restaurants/${id}${params.size ? `?${params}` : ''}`, { method: 'GET' }) as Promise<{ success: boolean; restaurant: PublicRestaurant }>;
   },
   menu: (id: string) => apiRequest(`/public/restaurants/${id}/menu`, { method: 'GET' }) as Promise<{ success: boolean; menuItems: PublicMenuItem[] }>,
+  reviews: (id: string) => apiRequest(`/public/restaurants/${id}/reviews`, { method: 'GET' }) as Promise<{ success: boolean; reviews: PublicReview[] }>,
   cuisines: () => apiRequest('/public/cuisines', { method: 'GET' }) as Promise<{ success: boolean; cuisines: string[] }>,
   categories: () => apiRequest('/public/categories', { method: 'GET' }) as Promise<{ success: boolean; categories: DiscoveryCategory[] }>,
 };

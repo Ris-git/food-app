@@ -189,6 +189,36 @@ router.patch("/my-settings", jwtAuthMiddleware, requireRestaurant(RESTAURANT_PER
   }
 });
 
+router.get("/my-orders", jwtAuthMiddleware, requireRestaurant(RESTAURANT_PERMISSIONS.MANAGE_ORDERS), async (req, res) => {
+  const orders = await Order.find({ restaurant: req.restaurant._id })
+    .populate('user', 'name phone')
+    .populate('items.menuItem', 'title type')
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .lean();
+  return res.json({ success: true, orders });
+});
+
+router.patch("/my-orders/:orderId/status", jwtAuthMiddleware, requireRestaurant(RESTAURANT_PERMISSIONS.MANAGE_ORDERS), async (req, res) => {
+  if (!require('mongoose').isValidObjectId(req.params.orderId)) return res.status(404).json({ success: false, message: 'Order not found.' });
+  const transitions = {
+    Pending: ['Preparing', 'Cancelled'],
+    Preparing: ['OutForDelivery', 'Cancelled'],
+    OutForDelivery: ['Delivered'],
+    Delivered: [],
+    Cancelled: [],
+  };
+  const order = await Order.findOne({ _id: req.params.orderId, restaurant: req.restaurant._id });
+  if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
+  const nextStatus = String(req.body.status || '');
+  if (!transitions[order.status]?.includes(nextStatus)) {
+    return res.status(409).json({ success: false, message: `Cannot change ${order.status} to ${nextStatus || 'an empty status'}.` });
+  }
+  order.status = nextStatus;
+  await order.save();
+  return res.json({ success: true, order });
+});
+
 // Keep parameterized routes after named routes so "my-dashboard" is not
 // interpreted as a restaurant ID.
 router.get("/:id", restaurantController.getRestaurantById);

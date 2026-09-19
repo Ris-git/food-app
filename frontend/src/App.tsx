@@ -12,10 +12,15 @@ import Billing from './pages/Restaurant/Billing';
 import OrganizationManagement from './pages/Restaurant/OrganizationManagement';
 import Discovery from './pages/Customer/Discovery';
 import RestaurantDetails from './pages/Customer/RestaurantDetails';
+import Cart from './pages/Customer/Cart';
+import Checkout from './pages/Customer/Checkout';
+import OrderDetails from './pages/Customer/OrderDetails';
+import Orders from './pages/Customer/Orders';
 import OrganizationSwitcher from './features/organization/components/OrganizationSwitcher';
 import { organizationService } from './features/organization/services/organizationService';
 import { useAuth } from './features/auth/context/AuthContext';
 import { useOrganization } from './features/organization/context/OrganizationContext';
+import { usePersistentCart } from './features/cart/usePersistentCart';
 
 const menuStyle: CSSProperties = { display: 'block', width: '100%', padding: '12px 20px', border: 0, background: 'transparent', color: '#1E293B', textAlign: 'left', fontWeight: 700, cursor: 'pointer' };
 
@@ -26,10 +31,21 @@ export default function App() {
   const route = useLocation();
   const [profileOpen, setProfileOpen] = useState(false);
   const [notice, setNotice] = useState('');
+  const [deliveryLocation, setDeliveryLocation] = useState(() => localStorage.getItem('deliveryLocation') || 'Choose location');
   const profileRef = useRef<HTMLDivElement>(null);
   const handledInviteRef = useRef('');
   const profileName = user?.name || user?.username || 'Account';
   const initials = profileName.split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('');
+  const customerCart = usePersistentCart();
+  const cartCount = customerCart.items.reduce((sum, item) => sum + item.quantity, 0);
+  const customerRoute = route.pathname === '/' || ['/restaurants', '/cart', '/checkout', '/orders'].some((path) => route.pathname.startsWith(path));
+
+  useEffect(() => {
+    const updateLocation = () => setDeliveryLocation(localStorage.getItem('deliveryLocation') || 'Choose location');
+    window.addEventListener('foody-location-change', updateLocation);
+    window.addEventListener('storage', updateLocation);
+    return () => { window.removeEventListener('foody-location-change', updateLocation); window.removeEventListener('storage', updateLocation); };
+  }, []);
 
   useEffect(() => {
     if (!user || route.pathname !== '/login') return;
@@ -68,12 +84,14 @@ export default function App() {
     <header className="header">
       <Link className="logo-container" to="/"><span className="logo-icon">F</span><span className="logo-text">Foody</span></Link>
       <nav className="nav-actions">
+        {customerRoute && <Link className="header-location" to="/?focusLocation=true"><span>Deliver to</span><strong>{deliveryLocation}</strong></Link>}
         <Link className="header-link" to="/restaurants">Restaurants</Link>
+        {customerRoute && <Link className="header-cart-link" to="/cart">Cart{cartCount > 0 && <b>{cartCount}</b>}</Link>}
         {user?.role === 'restaurant' && <OrganizationSwitcher />}
         {user ? <div ref={profileRef} className="profile-wrap"><button className="profile-button" onClick={() => setProfileOpen((open) => !open)}>{initials}</button>{profileOpen && <div className="profile-menu"><div className="profile-name"><strong>{profileName}</strong><small>{user.username}</small></div>
           {user.role === 'restaurant' && <><button style={menuStyle} onClick={() => go('/dashboard')}>Dashboard</button><button style={menuStyle} onClick={() => go('/dashboard/billing')}>Billing</button><button style={menuStyle} onClick={() => go('/dashboard/organization')}>Restaurants & staff</button></>}
           {(user.role === 'admin' || user.role === 'superAdmin') && <button style={menuStyle} onClick={() => go('/admin')}>Admin Console</button>}
-          {!['restaurant', 'admin', 'superAdmin'].includes(user.role) && <button style={menuStyle} onClick={() => go('/partner')}>Partner Application</button>}
+          {!['restaurant', 'admin', 'superAdmin'].includes(user.role) && <><button style={menuStyle} onClick={() => go('/orders')}>My orders</button><button style={menuStyle} onClick={() => go('/partner')}>Partner Application</button></>}
           <button style={{ ...menuStyle, color: '#B91C1C' }} onClick={async () => { await logout(); go('/'); }}>Log out</button>
         </div>}</div> : <><Link className="btn-ghost" to="/partner">Partner with us</Link>{route.pathname === '/' ? <Link className="btn-mint-pill" to="/signup">Get started</Link> : <><Link className="btn-outline-pill" to="/signup">Sign up</Link><Link className="btn-mint-pill" to="/login">Sign in</Link></>}</>}
       </nav>
@@ -84,6 +102,10 @@ export default function App() {
       <Route path="/" element={<Discovery landing />} />
       <Route path="/restaurants" element={<Discovery />} />
       <Route path="/restaurants/:restaurantId" element={<RestaurantDetails />} />
+      <Route path="/cart" element={<Cart />} />
+      <Route path="/checkout" element={<RequireCustomer><Checkout /></RequireCustomer>} />
+      <Route path="/orders" element={<RequireCustomer><Orders /></RequireCustomer>} />
+      <Route path="/orders/:orderId" element={<RequireCustomer><OrderDetails /></RequireCustomer>} />
       <Route path="/login" element={<AuthPage><Login /></AuthPage>} />
       <Route path="/signup" element={<AuthPage><Signup /></AuthPage>} />
       <Route path="/verify-email" element={<AuthPage><VerifyEmail /></AuthPage>} />
@@ -110,6 +132,22 @@ function RequireAuthentication({ children }: { children: React.ReactNode }) {
   if (!user) {
     const returnTo = `${location.pathname}${location.search}`;
     return <Navigate to={`/login?returnTo=${encodeURIComponent(returnTo)}`} replace />;
+  }
+
+  return children;
+}
+
+function RequireCustomer({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) return <main className="customer-page"><div className="state-card">Checking your session…</div></main>;
+  if (!user) {
+    const returnTo = `${location.pathname}${location.search}`;
+    return <Navigate to={`/login?returnTo=${encodeURIComponent(returnTo)}`} replace />;
+  }
+  if (user.role !== 'customer') {
+    return <main className="customer-page"><div className="state-card error">Checkout and order history require a customer account.</div></main>;
   }
 
   return children;

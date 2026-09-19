@@ -176,12 +176,35 @@ router.get('/restaurants/:restaurantId/menu', async (req, res) => {
     const restaurant = await Restaurant.exists({ _id: req.params.restaurantId, ...publicRestaurantMatch });
     if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found.' });
     const menuItems = await MenuItem.find({ restaurant: req.params.restaurantId })
-      .select('title type description price isAvailable')
+      .select('title type description imageUrl price isAvailable')
       .sort({ type: 1, title: 1 })
       .lean();
     return res.json({ success: true, menuItems });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Failed to load menu.' });
+  }
+});
+
+router.get('/restaurants/:restaurantId/reviews', async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.restaurantId)) return res.status(404).json({ success: false, message: 'Restaurant not found.' });
+    const restaurant = await Restaurant.exists({ _id: req.params.restaurantId, ...publicRestaurantMatch });
+    if (!restaurant) return res.status(404).json({ success: false, message: 'Restaurant not found.' });
+    const reviews = await Review.find({ restaurant: req.params.restaurantId })
+      .populate('user', 'name')
+      .select('rating comment user createdAt')
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
+    return res.json({ success: true, reviews: reviews.map((review) => ({
+      id: review._id,
+      rating: review.rating,
+      comment: review.comment || '',
+      customerName: review.user?.name || 'Foody customer',
+      createdAt: review.createdAt,
+    })) });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Failed to load reviews.' });
   }
 });
 

@@ -25,6 +25,18 @@ export type Analytics = {
   to: string;
 };
 
+export type RestaurantOrder = {
+  _id: string;
+  orderNumber?: string;
+  items: Array<{ menuItem: string | { _id: string; title: string }; quantity: number; priceAtPurchase: number }>;
+  totalPrice: number;
+  status: 'Pending' | 'Preparing' | 'OutForDelivery' | 'Delivered' | 'Cancelled';
+  deliveryAddress: string;
+  deliveryInstructions?: string;
+  user?: { _id: string; name?: string; phone?: string };
+  createdAt: string;
+};
+
 type SettingsResponse = { success: boolean; message: string; restaurant: Restaurant };
 
 export interface DashboardResponse {
@@ -75,5 +87,11 @@ export const restaurantDashboardService = {
     operatingHours: OperatingHours;
   }): Promise<SettingsResponse> {
     return (await apiRequest<SettingsResponse>('/restaurant/my-settings', { method: 'PATCH', body: JSON.stringify(settings) })) as unknown as SettingsResponse;
+  },
+  async getOrders(): Promise<{ success: boolean; orders: RestaurantOrder[] }> {
+    return (await apiRequest('/restaurant/my-orders', { method: 'GET' })) as unknown as { success: boolean; orders: RestaurantOrder[] };
+  },
+  async updateOrderStatus(orderId: string, status: RestaurantOrder['status']): Promise<{ success: boolean; order: RestaurantOrder }> {
+    return (await apiRequest(`/restaurant/my-orders/${orderId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) })) as unknown as { success: boolean; order: RestaurantOrder };
   },
 };

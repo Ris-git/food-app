@@ -19,10 +19,27 @@ const orderItemSubSchema = new mongoose.Schema({
 
 const orderSchema = new mongoose.Schema(
   {
+    orderNumber: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
+    clientRequestId: {
+      type: String,
+    },
     items: [orderItemSubSchema],
     totalPrice: {
       type: Number,
       required: true,
+    },
+    subtotal: { type: Number, required: true, default: 0 },
+    deliveryFee: { type: Number, required: true, default: 0 },
+    taxes: { type: Number, required: true, default: 0 },
+    paymentMethod: {
+      type: String,
+      enum: ["COD"],
+      default: "COD",
     },
     status: {
       type: String,
@@ -33,6 +50,8 @@ const orderSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    deliveryAddressLabel: { type: String, default: "Other" },
+    deliveryInstructions: { type: String, trim: true, maxlength: 300, default: "" },
     // The customer placing the order
     user: {
       type: mongoose.Schema.Types.ObjectId,
@@ -56,5 +75,7 @@ const orderSchema = new mongoose.Schema(
 );
 
 orderSchema.index({ restaurant: 1, createdAt: -1, status: 1 });
+orderSchema.index({ user: 1, createdAt: -1 });
+orderSchema.index({ user: 1, clientRequestId: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model("Order", orderSchema);

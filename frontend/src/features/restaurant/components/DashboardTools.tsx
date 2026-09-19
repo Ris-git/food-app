@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import * as XLSX from 'xlsx';
 import type { OperatingHours, Restaurant } from '../../../types';
 import {
@@ -6,6 +6,7 @@ import {
   type Analytics,
   type DashboardResponse,
   type MenuItemInput,
+  type RestaurantOrder,
 } from '../services/restaurantDashboardService';
 
 type Props = {
@@ -31,6 +32,8 @@ export const DashboardTools: React.FC<Props> = ({ data, onRefresh, onRestaurantU
   const [to, setTo] = useState(today);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [analyticsError, setAnalyticsError] = useState('');
+  const [orders, setOrders] = useState<RestaurantOrder[]>([]);
+  const [ordersError, setOrdersError] = useState('');
   const [settings, setSettings] = useState({
     name: data.restaurant.name,
     phone: data.restaurant.phone || '',
@@ -50,6 +53,28 @@ export const DashboardTools: React.FC<Props> = ({ data, onRefresh, onRestaurantU
       .then((response) => { setAnalytics(response.analytics); setAnalyticsError(''); })
       .catch((error: unknown) => setAnalyticsError(error instanceof Error ? error.message : 'Analytics unavailable.'));
   }, [analyticsEnabled, from, to]);
+
+  const loadOrders = useCallback(async () => {
+    try {
+      const response = await restaurantDashboardService.getOrders();
+      setOrders(response.orders);
+      setOrdersError('');
+    } catch (error) {
+      setOrdersError(error instanceof Error ? error.message : 'Orders are unavailable.');
+    }
+  }, []);
+
+  useEffect(() => { void loadOrders(); }, [restaurantId, loadOrders]);
+
+  const updateOrderStatus = async (orderId: string, status: RestaurantOrder['status']) => {
+    try {
+      await restaurantDashboardService.updateOrderStatus(orderId, status);
+      setMessage(`Order moved to ${status.replace('OutForDelivery', 'out for delivery').toLowerCase()}.`);
+      await loadOrders();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to update this order.');
+    }
+  };
 
   const resetMenu = () => {
     setEditingId(null);
@@ -142,6 +167,14 @@ export const DashboardTools: React.FC<Props> = ({ data, onRefresh, onRestaurantU
   return (
     <>
       {message && <div style={{ margin: '20px 0', padding: '12px 14px', background: '#FFF', border: '1px solid #CBD5E1', borderRadius: '10px', color: '#334155' }}>{message}</div>}
+
+      <section style={sectionStyle}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}><div><h3 style={{ margin: 0 }}>Incoming orders</h3><p style={{ margin: '5px 0 0', color: '#64748B', fontSize: 13 }}>Confirm and advance customer orders through fulfilment.</p></div><button style={smallButtonStyle} onClick={() => void loadOrders()}>Refresh</button></div>
+        {ordersError ? <p style={{ color: '#B91C1C' }}>{ordersError}</p> : orders.length ? <div style={{ display: 'grid', gap: 12, marginTop: 18 }}>{orders.map((order) => {
+          const nextStatus = order.status === 'Pending' ? 'Preparing' : order.status === 'Preparing' ? 'OutForDelivery' : order.status === 'OutForDelivery' ? 'Delivered' : null;
+          return <article key={order._id} style={{ padding: 16, border: '1px solid #E2E8F0', borderRadius: 12, background: '#F8FAFC' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><div><strong>{order.orderNumber || order._id}</strong><p style={{ margin: '5px 0', color: '#64748B', fontSize: 13 }}>{order.user?.name || 'Customer'} · {order.deliveryAddress}</p></div><div style={{ textAlign: 'right' }}><strong>{order.status.replace('OutForDelivery', 'Out for delivery')}</strong><p style={{ margin: '5px 0' }}>₹{order.totalPrice}</p></div></div><p style={{ color: '#334155', fontSize: 13 }}>{order.items.map((item) => `${item.quantity} × ${typeof item.menuItem === 'string' ? 'Menu item' : item.menuItem.title}`).join(' · ')}</p>{order.deliveryInstructions && <p style={{ color: '#64748B', fontSize: 12 }}>Note: {order.deliveryInstructions}</p>}<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{nextStatus && <button style={actionStyle} onClick={() => void updateOrderStatus(order._id, nextStatus)}>Mark {nextStatus.replace('OutForDelivery', 'out for delivery')}</button>}{['Pending', 'Preparing'].includes(order.status) && <button style={{ ...smallButtonStyle, color: '#B91C1C', borderColor: '#FCA5A5' }} onClick={() => void updateOrderStatus(order._id, 'Cancelled')}>Cancel order</button>}</div></article>;
+        })}</div> : <p style={{ color: '#64748B' }}>No customer orders yet.</p>}
+      </section>
 
       <section style={sectionStyle}>
         <h3 style={{ margin: '0 0 16px' }}>Menu management</h3>

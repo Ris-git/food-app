@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { discoveryService, type DiscoveryCategory, type PublicRestaurant } from '../../features/discovery/services/discoveryService';
 
@@ -37,6 +37,7 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const locationInputRef = useRef<HTMLInputElement>(null);
 
   const featuredCategories = fallbackCategories;
   const activeCategoryName = fallbackCategories.find((category) => category.slug === selectedCategory)?.name
@@ -49,6 +50,9 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
   useEffect(() => {
     discoveryService.categories().then((response) => setCategories(response.categories)).catch(() => setCategories(fallbackCategories));
   }, []);
+  useEffect(() => {
+    if (landing && params.get('focusLocation') === 'true') locationInputRef.current?.focus();
+  }, [landing, params]);
   useEffect(() => {
     let active = true;
     const load = () => discoveryService.restaurants({
@@ -89,7 +93,8 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
       ({ coords }) => {
         const nextCoordinates = { latitude: coords.latitude, longitude: coords.longitude };
         setLocation('');
-        localStorage.removeItem('deliveryLocation');
+        localStorage.setItem('deliveryLocation', 'Current location');
+        window.dispatchEvent(new Event('foody-location-change'));
         setCoordinates(nextCoordinates);
         sessionStorage.setItem('foodyCoordinates', JSON.stringify(nextCoordinates));
         setSort('distance');
@@ -103,12 +108,15 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
   const clearCurrentLocation = () => {
     setCoordinates(null);
     sessionStorage.removeItem('foodyCoordinates');
+    if (localStorage.getItem('deliveryLocation') === 'Current location') localStorage.removeItem('deliveryLocation');
+    window.dispatchEvent(new Event('foody-location-change'));
     if (sort === 'distance') setSort('newest');
   };
 
   const clearArea = () => {
     setLocation('');
     localStorage.removeItem('deliveryLocation');
+    window.dispatchEvent(new Event('foody-location-change'));
   };
 
   const clearFilters = () => {
@@ -124,12 +132,14 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
     setCoordinates(null);
     sessionStorage.removeItem('foodyCoordinates');
     localStorage.removeItem('deliveryLocation');
+    window.dispatchEvent(new Event('foody-location-change'));
     navigate(landing ? '/' : '/restaurants', { replace: true });
   };
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     localStorage.setItem('deliveryLocation', location);
+    window.dispatchEvent(new Event('foody-location-change'));
     const next = new URLSearchParams();
     if (location) next.set('location', location);
     if (search) next.set('search', search);
@@ -149,7 +159,7 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
       <h1>Good food is closer than you think.</h1>
       <p>Choose your area and discover approved Foody restaurants near you.</p>
       <form className="discovery-search" onSubmit={submit}>
-        <input aria-label="Delivery location" placeholder="Enter area or city" value={location} onChange={(event) => { setLocation(event.target.value); clearCurrentLocation(); }} />
+        <input ref={locationInputRef} aria-label="Delivery location" placeholder="Enter area or city" value={location} onChange={(event) => { setLocation(event.target.value); clearCurrentLocation(); }} />
         <input aria-label="Search restaurants or dishes" placeholder="Search restaurant, cuisine or dish" value={search} onChange={(event) => setSearch(event.target.value)} />
         <button>Find food</button>
       </form>
@@ -157,6 +167,12 @@ export default function Discovery({ landing = false }: { landing?: boolean }) {
         <button type="button" className="location-button" onClick={useCurrentLocation} disabled={locating}>{locating ? 'Finding your location…' : coordinates ? 'Refresh current location' : 'Use my current location'}</button>
         {coordinates && <><span>Showing restaurants within {radiusKm} km</span><button type="button" className="location-button" onClick={clearCurrentLocation}>Clear location</button></>}
       </div>
+    </section>}
+
+    {landing && <section className="discovery-collections" aria-label="Restaurant collections">
+      <Link to="/restaurants?openNow=true"><span>OPEN NOW</span><strong>Ready when you are</strong><small>Restaurants currently accepting orders</small></Link>
+      <Link to="/restaurants?sort=deliveryTime"><span>FAST DELIVERY</span><strong>Food without the wait</strong><small>Browse by estimated delivery time</small></Link>
+      <Link to="/restaurants?category=healthy"><span>FRESH PICKS</span><strong>Healthy choices</strong><small>Bowls, smoothies and lighter meals</small></Link>
     </section>}
 
     <section className="discovery-section">
